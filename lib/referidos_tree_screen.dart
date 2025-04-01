@@ -39,6 +39,13 @@ class _ReferidosTreeScreenState extends State<ReferidosTreeScreen> {
     }).toList();
   }
 
+  double calcularComision(double ventas, int nivel) {
+    if (nivel == 2) return ventas * 0.10;
+    if (nivel == 3) return ventas * 0.07;
+    if (nivel == 4) return ventas * 0.03;
+    return 0.0;
+  }
+
   Widget _buildTree(String userId, String name, [int nivel = 1]) {
     return FutureBuilder<List<Referido>>(
       future: _fetchReferidos(userId),
@@ -51,7 +58,19 @@ class _ReferidosTreeScreenState extends State<ReferidosTreeScreen> {
         return ExpansionTile(
           title: Text("$name (Nivel $nivel)"),
           subtitle: Text("Referidos: ${referidos.length}"),
-          children: referidos.map((r) => _buildTree(r.id, r.name, nivel + 1)).toList(),
+          children: referidos.map((r) {
+            final comision = calcularComision(r.ventas, nivel + 1);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  title: Text(r.name),
+                  subtitle: Text("Ventas: \$${r.ventas.toStringAsFixed(2)}  •  Comisión: \$${comision.toStringAsFixed(2)}"),
+                ),
+                _buildTree(r.id, r.name, nivel + 1),
+              ],
+            );
+          }).toList(),
         );
       },
     );

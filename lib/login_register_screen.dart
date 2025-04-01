@@ -35,13 +35,28 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       if (isLogin) {
         await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: pass);
       } else {
+        // Validar que el código de referido existe en la base de datos
+        final refSnapshot = await FirebaseFirestore.instance
+            .collection('winners')
+            .where('codigo', isEqualTo: referido)
+            .limit(1)
+            .get();
+
+        if (refSnapshot.docs.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('El código de referido no es válido.')),
+          );
+          setState(() => isLoading = false);
+          return;
+        }
+
         final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: pass);
         await FirebaseFirestore.instance.collection('winners').doc(cred.user!.uid).set({
           'name': name,
           'email': email,
           'fechaIngreso': DateTime.now().toIso8601String(),
           'ventasPropias': 0.0,
-          'referidoPor': referido,
+          'referidoPor': refSnapshot.docs.first.id, // Guarda el ID del referido
         });
       }
     } catch (e) {
@@ -99,7 +114,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
                 if (!isLogin) ...[
                   _buildTextField(_nameController, 'Nombre'),
                   SizedBox(height: 16),
-                  _buildTextField(_referidoController, 'Código de referido'),
+                  _buildTextField(_referidoController, 'Código de Winner que te invitó'),
                   SizedBox(height: 16),
                 ],
                 _buildTextField(_emailController, 'Correo electrónico'),
