@@ -1,0 +1,31 @@
+name: app_multinivel
+description: Aplicación Flutter para red de referidos y cálculo de comisiones multinivel.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase Core
+  firebase_core: ^2.27.0
+
+  # Firebase Auth
+  firebase_auth: ^4.17.4
+
+  # Cloud Firestore
+  cloud_firestore: ^4.17.3
+
+  # Para usar controladores de texto, navegación y diseño
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "559817737819",
+    "project_id": "appcomisiones-2eff7",
+    "storage_bucket": "appcomisiones-2eff7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:559817737819:android:a3c6f865ad2daaca25a17e",
+        "android_client_info": {
+          "package_name": "com.example.app_comisiones"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLNpcPAfuRErP6UWzmRsXF3Pf7-NSDdsg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
