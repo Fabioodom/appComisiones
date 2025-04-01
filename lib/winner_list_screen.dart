@@ -1,23 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'referidos_tree_screen.dart';
+import 'login_register_screen.dart';
 
-class Winner {
-  final String id;
-  final String name;
-  final DateTime fechaIngreso;
-  final double ventas;
-  final String? referidoPor;
-
-  Winner({
-    required this.id,
-    required this.name,
-    required this.fechaIngreso,
-    required this.ventas,
-    this.referidoPor,
-  });
-}
 
 class WinnerListScreen extends StatefulWidget {
   @override
@@ -27,6 +14,8 @@ class WinnerListScreen extends StatefulWidget {
 class _WinnerListScreenState extends State<WinnerListScreen> {
   late String currentUserId;
   String? currentUserName;
+  Map<String, dynamic> ventasMensuales = {};
+  Map<String, double> comisionesMensuales = {};
 
   @override
   void initState() {
@@ -37,9 +26,41 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
 
   void _loadCurrentUser() async {
     final doc = await FirebaseFirestore.instance.collection('winners').doc(currentUserId).get();
+    final ventas = doc['ventasPorMes'] ?? {};
+    final comisiones = await _calcularComisionesMensuales(currentUserId);
     setState(() {
       currentUserName = doc['name'] ?? 'Usuario';
+      ventasMensuales = ventas;
+      comisionesMensuales = comisiones;
     });
+  }
+
+  Future<Map<String, double>> _calcularComisionesMensuales(String userId) async {
+    Map<String, double> totalComisiones = {};
+
+    Future<void> calcular(String uid, int nivel) async {
+      if (nivel > 4) return;
+      final query = await FirebaseFirestore.instance
+          .collection('winners')
+          .where('referidoPor', isEqualTo: uid)
+          .get();
+
+      for (var doc in query.docs) {
+        final data = doc.data();
+        final subVentas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
+        double porcentaje = nivel == 2 ? 0.10 : nivel == 3 ? 0.07 : 0.03;
+
+        subVentas.forEach((mes, valor) {
+          final val = double.tryParse(valor.toString()) ?? 0;
+          totalComisiones[mes] = (totalComisiones[mes] ?? 0) + (val * porcentaje);
+        });
+
+        await calcular(doc.id, nivel + 1);
+      }
+    }
+
+    await calcular(userId, 2);
+    return totalComisiones;
   }
 
   Future<Winner> _fetchWinner(String uid) async {
@@ -71,7 +92,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     }).toList();
   }
 
-  Future<double> _calcularComisiones(Winner w, int nivel) async {
+  double _calcularComisiones(Winner w, int nivel) {
     double total = 0;
     final meses = DateTime.now().difference(w.fechaIngreso).inDays ~/ 30;
 
@@ -79,18 +100,9 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       if (meses == 0) total += w.ventas * 0.15;
       else if (meses == 1) total += w.ventas * 0.18;
       else total += w.ventas * 0.20;
-    } else if (nivel == 2) {
-      total += w.ventas * 0.10;
-    } else if (nivel == 3) {
-      total += w.ventas * 0.07;
-    } else if (nivel == 4) {
-      total += w.ventas * 0.03;
-    }
-
-    final referidos = await _fetchReferidos(w.id);
-    for (var ref in referidos) {
-      total += await _calcularComisiones(ref, nivel + 1);
-    }
+    } else if (nivel == 2) total += w.ventas * 0.10;
+    else if (nivel == 3) total += w.ventas * 0.07;
+    else if (nivel == 4) total += w.ventas * 0.03;
 
     return total;
   }
@@ -105,7 +117,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
 
   void _verComisiones() async {
     final user = await _fetchWinner(currentUserId);
-    final total = await _calcularComisiones(user, 1);
+    final total = _calcularComisiones(user, 1);
     final referidos = await _fetchReferidos(currentUserId);
     final reco = _obtenerReconocimiento(total, referidos.length);
 
@@ -192,40 +204,15 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   }
 
   void _logout() async {
-    await FirebaseAuth.instance.signOut();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFF9FAFB),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: Text("Panel Principal", style: TextStyle(color: Colors.black)),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.black),
-            onPressed: _logout,
-          )
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Wrap(
-            spacing: 20,
-            runSpacing: 20,
-            children: [
-              _dashboardCard("Ver comisiones", Icons.paid, Colors.green, _verComisiones),
-              _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
-              _dashboardCard("Editar mis ventas", Icons.edit_note, Colors.orange, _editarVentas),
-            ],
-          ),
-        ),
-      ),
+  await FirebaseAuth.instance.signOut();
+  if (mounted) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => LoginRegisterScreen()),
+      (route) => false,
     );
   }
+}
+
 
   Widget _dashboardCard(String title, IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
@@ -255,4 +242,164 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       ),
     );
   }
+
+  Widget _buildSalesChart() {
+    final now = DateTime.now();
+    final List<FlSpot> ventasSpots = [];
+    final List<FlSpot> comisionSpots = [];
+
+    for (int i = 0; i < 12; i++) {
+      final key = "${now.year}-${(i + 1).toString().padLeft(2, '0')}";
+      final v = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+      final c = comisionesMensuales[key] ?? 0;
+      ventasSpots.add(FlSpot(i.toDouble(), v));
+      comisionSpots.add(FlSpot(i.toDouble(), c));
+    }
+
+    return Container(
+      height: 260,
+      padding: EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Resumen mensual", style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 4),
+          Text("(${now.year}) Ventas vs Comisiones", style: TextStyle(color: Colors.teal)),
+          SizedBox(height: 10),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                gridData: FlGridData(show: true, drawVerticalLine: false),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: ventasSpots,
+                    isCurved: true,
+                    color: Colors.teal,
+                    barWidth: 3,
+                    belowBarData: BarAreaData(show: true, color: Colors.teal.withOpacity(0.2)),
+                    dotData: FlDotData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: comisionSpots,
+                    isCurved: true,
+                    color: Colors.deepPurple,
+                    barWidth: 3,
+                    belowBarData: BarAreaData(show: true, color: Colors.deepPurple.withOpacity(0.15)),
+                    dotData: FlDotData(show: false),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _agregarVentaMes() async {
+    final controller = TextEditingController();
+    final now = DateTime.now();
+    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+
+    final cantidad = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Registrar ventas en $key"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: "Monto a registrar"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text("Guardar"),
+          ),
+        ],
+      ),
+    );
+
+    if (cantidad == null || cantidad.isEmpty) return;
+    final monto = double.tryParse(cantidad);
+    if (monto == null) return;
+
+    final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final snapshot = await tx.get(docRef);
+      final ventas = Map<String, dynamic>.from(snapshot.data()?['ventasPorMes'] ?? {});
+      final actual = (ventas[key] ?? 0).toDouble();
+      ventas[key] = actual + monto;
+      tx.update(docRef, {'ventasPorMes': ventas});
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Registrado \$${monto.toStringAsFixed(2)} para $key")),
+      );
+      _loadCurrentUser();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Color(0xFFF9FAFB),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        title: Text("Panel Principal", style: TextStyle(color: Colors.black)),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.black),
+            onPressed: _logout,
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _buildSalesChart(),
+            Wrap(
+              spacing: 20,
+              runSpacing: 20,
+              children: [
+                _dashboardCard("Ver comisiones", Icons.paid, Colors.green, _verComisiones),
+                _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
+                _dashboardCard("Editar mis ventas", Icons.edit_note, Colors.orange, _editarVentas),
+                _dashboardCard("Añadir venta mensual", Icons.add_chart, Colors.purple, _agregarVentaMes),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class Winner {
+  final String id;
+  final String name;
+  final DateTime fechaIngreso;
+  final double ventas;
+  final String? referidoPor;
+
+  Winner({
+    required this.id,
+    required this.name,
+    required this.fechaIngreso,
+    required this.ventas,
+    this.referidoPor,
+  });
 }

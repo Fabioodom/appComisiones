@@ -50,13 +50,41 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           return;
         }
 
+        // Solicitar ventas iniciales por mes
+        final ventasController = TextEditingController();
+        final now = DateTime.now();
+        final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+
+        final cantidad = await showDialog<String>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text("¿Cuánto has vendido este mes? ($key)"),
+            content: TextField(
+              controller: ventasController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: "Ventas iniciales en €"),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, ventasController.text.trim()),
+                child: Text("Guardar"),
+              ),
+            ],
+          ),
+        );
+
+        final ventasValor = double.tryParse(cantidad ?? '');
+        final ventasPorMes = ventasValor != null ? {key: ventasValor} : {};
+
         final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: pass);
         await FirebaseFirestore.instance.collection('winners').doc(cred.user!.uid).set({
           'name': name,
           'email': email,
           'fechaIngreso': DateTime.now().toIso8601String(),
-          'ventasPropias': 0.0,
-          'referidoPor': refSnapshot.docs.first.id, // Guarda el ID del referido
+          'ventasPropias': ventasValor ?? 0.0,
+          'ventasPorMes': ventasPorMes,
+          'referidoPor': refSnapshot.docs.first.id,
         });
       }
     } catch (e) {
