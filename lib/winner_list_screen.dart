@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'referidos_tree_screen.dart';
 
 class Winner {
   final String id;
@@ -25,11 +26,20 @@ class WinnerListScreen extends StatefulWidget {
 
 class _WinnerListScreenState extends State<WinnerListScreen> {
   late String currentUserId;
+  String? currentUserName;
 
   @override
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    _loadCurrentUser();
+  }
+
+  void _loadCurrentUser() async {
+    final doc = await FirebaseFirestore.instance.collection('winners').doc(currentUserId).get();
+    setState(() {
+      currentUserName = doc['name'] ?? 'Usuario';
+    });
   }
 
   Future<Winner> _fetchWinner(String uid) async {
@@ -99,19 +109,86 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     final referidos = await _fetchReferidos(currentUserId);
     final reco = _obtenerReconocimiento(total, referidos.length);
 
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("Tus comisiones"),
-        content: Text("Total: \$${total.toStringAsFixed(2)}\nReconocimiento: $reco"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Tus comisiones", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("Total: \$${total.toStringAsFixed(2)}", style: TextStyle(fontSize: 18)),
+            SizedBox(height: 8),
+            Text("Reconocimiento: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("OK"),
+            child: Text("Cerrar", style: TextStyle(color: Colors.teal)),
           )
         ],
       ),
     );
+  }
+
+  void _editarVentas() async {
+    final controller = TextEditingController();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Actualizar ventas"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: "Total de ventas",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(shape: StadiumBorder()),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text("Guardar"),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      final ventas = double.tryParse(result);
+      if (ventas != null) {
+        await FirebaseFirestore.instance
+            .collection('winners')
+            .doc(currentUserId)
+            .update({'ventasPropias': ventas});
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Ventas actualizadas a \$${ventas.toStringAsFixed(2)}")),
+          );
+        }
+      }
+    }
+  }
+
+  void _abrirArbolReferidos() {
+    if (currentUserName != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReferidosTreeScreen(
+            rootId: currentUserId,
+            rootName: currentUserName!,
+          ),
+        ),
+      );
+    }
   }
 
   void _logout() async {
@@ -121,19 +198,59 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: Text("Mi Red"),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        title: Text("Panel Principal", style: TextStyle(color: Colors.black)),
         actions: [
           IconButton(
+            icon: Icon(Icons.logout, color: Colors.black),
             onPressed: _logout,
-            icon: Icon(Icons.logout),
           )
         ],
       ),
       body: Center(
-        child: ElevatedButton(
-          onPressed: _verComisiones,
-          child: Text("Ver comisiones y reconocimiento"),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: [
+              _dashboardCard("Ver comisiones", Icons.paid, Colors.green, _verComisiones),
+              _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
+              _dashboardCard("Editar mis ventas", Icons.edit_note, Colors.orange, _editarVentas),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dashboardCard(String title, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 200,
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 40, color: color),
+            SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            )
+          ],
         ),
       ),
     );

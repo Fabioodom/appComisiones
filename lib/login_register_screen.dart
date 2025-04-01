@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lottie/lottie.dart';
 
 class LoginRegisterScreen extends StatefulWidget {
   @override
@@ -13,12 +14,22 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
   final _nameController = TextEditingController();
   final _referidoController = TextEditingController();
   bool isLogin = true;
+  bool isLoading = false;
 
   void _submit() async {
     final email = _emailController.text.trim();
     final pass = _passController.text.trim();
     final name = _nameController.text.trim();
     final referido = _referidoController.text.trim();
+
+    if (!isLogin && referido.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Debes ingresar un código de referido para registrarte.')),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
 
     try {
       if (isLogin) {
@@ -30,35 +41,96 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           'email': email,
           'fechaIngreso': DateTime.now().toIso8601String(),
           'ventasPropias': 0.0,
-          'referidoPor': referido.isNotEmpty ? referido : null,
+          'referidoPor': referido,
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, {bool isPassword = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(isLogin ? 'Login' : 'Registro')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            if (!isLogin) ...[
-              TextField(controller: _nameController, decoration: InputDecoration(labelText: 'Nombre')),
-              TextField(controller: _referidoController, decoration: InputDecoration(labelText: 'Código de referido (opcional)')),
-            ],
-            TextField(controller: _emailController, decoration: InputDecoration(labelText: 'Correo')),
-            TextField(controller: _passController, obscureText: true, decoration: InputDecoration(labelText: 'Contraseña')),
-            SizedBox(height: 20),
-            ElevatedButton(onPressed: _submit, child: Text(isLogin ? 'Iniciar Sesión' : 'Registrarse')),
-            TextButton(
-              onPressed: () => setState(() => isLogin = !isLogin),
-              child: Text(isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'),
-            )
-          ],
+      backgroundColor: Color(0xFFF9FAFB),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 12, offset: Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Lottie.asset(
+                  'assets/animations/login.json',
+                  width: 160,
+                  repeat: true,
+                ),
+                SizedBox(height: 12),
+                Text(
+                  isLogin ? 'Iniciar Sesión' : 'Crear Cuenta',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 24),
+                if (!isLogin) ...[
+                  _buildTextField(_nameController, 'Nombre'),
+                  SizedBox(height: 16),
+                  _buildTextField(_referidoController, 'Código de referido'),
+                  SizedBox(height: 16),
+                ],
+                _buildTextField(_emailController, 'Correo electrónico'),
+                SizedBox(height: 16),
+                _buildTextField(_passController, 'Contraseña', isPassword: true),
+                SizedBox(height: 24),
+                isLoading
+                    ? CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size(double.infinity, 50),
+                          backgroundColor: Colors.teal,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          isLogin ? 'Entrar' : 'Registrarse',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => setState(() => isLogin = !isLogin),
+                  child: Text(
+                    isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión',
+                    style: TextStyle(color: Colors.teal),
+                  ),
+                )
+              ],
+            ),
+          ),
         ),
       ),
     );

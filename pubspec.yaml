@@ -22,6 +22,9 @@ dependencies:
   # Para usar controladores de texto, navegación y diseño
   cupertino_icons: ^1.0.6
 
+  lottie: ^2.7.0
+
+  fl_chart: ^0.65.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -29,3 +32,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/animations/login.json
