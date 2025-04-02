@@ -14,12 +14,12 @@ class WinnerListScreen extends StatefulWidget {
 class _WinnerListScreenState extends State<WinnerListScreen> {
   late String currentUserId;
   String? currentUserName;
-  Map<String, dynamic> ventasMensuales = {};
-  Map<String, double> comisionesMensuales = {};
+  Map<String, dynamic> ventasMensuales = {};  // Llaves en formato "yyyy-MM"
+  Map<String, double> comisionesMensuales = {}; // Llaves en formato "yyyy-MM"
 
-  // Variable para guardar el rango de fechas seleccionado
+  // Rango de fechas seleccionado
   DateTimeRange? _rangoFechas;
-  // GlobalKey para el icono del calendario
+  // GlobalKey para el icono del calendario (para mostrar hint)
   final GlobalKey _calendarIconKey = GlobalKey();
   OverlayEntry? _overlayEntry;
 
@@ -29,13 +29,12 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     currentUserId = FirebaseAuth.instance.currentUser!.uid;
     _loadCurrentUser();
 
-    // Mostramos el hint del calendario sutilmente cuando se cargue la pantalla
+    // Muestra un hint para cambiar el rango de fechas al iniciar la pantalla.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showCalendarHint();
     });
   }
 
-  // Método para mostrar un overlay con el mensaje (posición ajustada para no salirse de la pantalla)
   void _showCalendarHint() {
     final overlay = Overlay.of(context);
     if (overlay == null) return;
@@ -81,6 +80,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     });
   }
 
+  // Carga el usuario actual y los datos mensuales desde Firestore.
   void _loadCurrentUser() async {
     final doc = await FirebaseFirestore.instance
         .collection('winners')
@@ -95,6 +95,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     });
   }
 
+  // Calcula las comisiones totales a partir de las ventas de los referidos.
   Future<Map<String, double>> _calcularComisionesMensuales(String userId) async {
     Map<String, double> totalComisiones = {};
 
@@ -108,6 +109,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       for (var doc in query.docs) {
         final data = doc.data();
         final subVentas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
+        // Define el porcentaje según el nivel
         double porcentaje = nivel == 2 ? 0.10 : nivel == 3 ? 0.07 : 0.03;
 
         subVentas.forEach((mes, valor) {
@@ -180,22 +182,37 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     return 'Sin reconocimiento';
   }
 
+  // Al pulsar "Ver comisiones", se muestran las comisiones ganadas por referidos y el reconocimiento.
   void _verComisiones() async {
-    final user = await _fetchWinner(currentUserId);
-    final total = _calcularComisiones(user, 1);
-    final referidos = await _fetchReferidos(currentUserId);
-    final reco = _obtenerReconocimiento(total, referidos.length);
+    double totalComision = 0;
+    if (_rangoFechas != null) {
+      final DateTime rangeStart = _rangoFechas!.start;
+      final DateTime rangeEnd = _rangoFechas!.end;
+      comisionesMensuales.forEach((key, value) {
+        // Se asume que la llave es "yyyy-MM"; se crea un DateTime con el primer día del mes.
+        DateTime monthDate = DateTime.parse("$key-01");
+        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+          totalComision += value;
+        }
+      });
+    } else {
+      // Si no se ha seleccionado rango, se suman todas las comisiones.
+      totalComision = comisionesMensuales.values.fold(0, (prev, element) => prev + element);
+    }
 
-    if (!mounted) return;
+    // Se obtiene la cantidad de referidos para calcular el reconocimiento.
+    final referidos = await _fetchReferidos(currentUserId);
+    final reco = _obtenerReconocimiento(totalComision, referidos.length);
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Tus comisiones", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text("Comisiones ganadas", style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Total: \$${total.toStringAsFixed(2)}", style: TextStyle(fontSize: 18)),
+            Text("Total: \$${totalComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 18)),
             SizedBox(height: 8),
             Text("Reconocimiento: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
           ],
@@ -210,19 +227,22 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     );
   }
 
-  void _editarVentas() async {
-    final controller = TextEditingController();
-
+  // Permite editar las ventas mensuales del mes actual (clave "yyyy-MM")
+  void _editarVentaMes() async {
+    final now = DateTime.now();
+    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+    final currentValue = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+    final controller = TextEditingController(text: currentValue.toString());
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Actualizar ventas"),
+        title: Text("Editar ventas para $key"),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            labelText: "Total de ventas",
+            labelText: "Nuevo total de ventas",
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
@@ -238,45 +258,312 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final ventas = double.tryParse(result);
-      if (ventas != null) {
+      final newSales = double.tryParse(result);
+      if (newSales != null) {
         await FirebaseFirestore.instance
             .collection('winners')
             .doc(currentUserId)
-            .update({'ventasPropias': ventas});
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Ventas actualizadas a \$${ventas.toStringAsFixed(2)}")),
-          );
-        }
+            .update({'ventasPorMes.$key': newSales});
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Ventas para $key actualizadas a \$${newSales.toStringAsFixed(2)}")));
+        _loadCurrentUser();
       }
     }
   }
 
-  void _abrirArbolReferidos() {
-    if (currentUserName != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ReferidosTreeScreen(
-            rootId: currentUserId,
-            rootName: currentUserName!,
-          ),
+  // Agregar ventas para el mes actual (acumulando el valor)
+  void _agregarVentaMes() async {
+    final controller = TextEditingController();
+    final now = DateTime.now();
+    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+    final cantidad = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Registrar ventas en $key"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: "Monto a registrar"),
         ),
-      );
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text("Guardar"),
+          ),
+        ],
+      ),
+    );
+
+    if (cantidad == null || cantidad.isEmpty) return;
+    final monto = double.tryParse(cantidad);
+    if (monto == null) return;
+    final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final snapshot = await tx.get(docRef);
+      final ventas = Map<String, dynamic>.from(snapshot.data()?['ventasPorMes'] ?? {});
+      final actual = (ventas[key] ?? 0).toDouble();
+      ventas[key] = actual + monto;
+      tx.update(docRef, {'ventasPorMes': ventas});
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Registrado \$${monto.toStringAsFixed(2)} para $key")));
+      _loadCurrentUser();
     }
   }
 
-  void _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => LoginRegisterScreen()),
-        (route) => false,
-      );
+  // Selección del rango de fechas
+  void _seleccionarRangoFechas() async {
+    final rango = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _rangoFechas ??
+          DateTimeRange(
+            start: DateTime.now().subtract(const Duration(days: 30)),
+            end: DateTime.now(),
+          ),
+    );
+
+    if (rango != null) {
+      setState(() {
+        _rangoFechas = rango;
+      });
     }
   }
+
+  // Construcción del gráfico.
+  // Se usa resolución diaria si el rango es menor a 32 días; de lo contrario, mensual.
+  // Además, se calcula la suma total de ventas y comisiones facturadas en el rango.
+  Widget _buildSalesChart() {
+    final now = DateTime.now();
+    final DateTime startDate =
+        _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
+    final DateTime endDate = _rangoFechas?.end ?? now;
+
+    final bool useDaily = _rangoFechas != null &&
+        endDate.difference(startDate).inDays < 32;
+
+    // Genera la lista de puntos en el eje X (días o meses)
+    List<DateTime> timePoints = [];
+    if (useDaily) {
+      DateTime cursor = startDate;
+      while (!cursor.isAfter(endDate)) {
+        timePoints.add(cursor);
+        cursor = cursor.add(Duration(days: 1));
+      }
+    } else {
+      DateTime cursor = DateTime(startDate.year, startDate.month, 1);
+      while (!cursor.isAfter(endDate)) {
+        timePoints.add(cursor);
+        if (cursor.month == 12) {
+          cursor = DateTime(cursor.year + 1, 1, 1);
+        } else {
+          cursor = DateTime(cursor.year, cursor.month + 1, 1);
+        }
+      }
+    }
+
+    // Si se obtiene solo un punto, se duplica para dibujar la línea.
+    if (timePoints.length == 1) {
+      timePoints.add(timePoints[0].add(useDaily ? Duration(days: 1) : Duration(days: 30)));
+    }
+
+    // Para el gráfico se usan los datos mensuales.
+    final List<FlSpot> ventasSpots = [];
+    final List<FlSpot> comisionSpots = [];
+    for (int i = 0; i < timePoints.length; i++) {
+      final dt = timePoints[i];
+      final key = "${dt.year}-${dt.month.toString().padLeft(2, '0')}";
+      final v = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+      final c = comisionesMensuales[key] ?? 0;
+      ventasSpots.add(FlSpot(i.toDouble(), v));
+      comisionSpots.add(FlSpot(i.toDouble(), c));
+    }
+
+    // Calcula la suma total de ventas y comisiones en el rango.
+    double aggregatedSales = 0;
+    double aggregatedCommission = 0;
+    if (_rangoFechas != null) {
+      final DateTime rangeStart = _rangoFechas!.start;
+      final DateTime rangeEnd = _rangoFechas!.end;
+      ventasMensuales.forEach((key, value) {
+        DateTime monthDate = DateTime.parse("$key-01");
+        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+          aggregatedSales += double.tryParse(value.toString()) ?? 0;
+        }
+      });
+      comisionesMensuales.forEach((key, value) {
+        DateTime monthDate = DateTime.parse("$key-01");
+        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+          aggregatedCommission += value;
+        }
+      });
+    } else {
+      String key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+      aggregatedSales = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+      aggregatedCommission = comisionesMensuales[key] ?? 0;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _rangoFechas != null
+                ? "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}"
+                : "Gráfico de Ventas y Comisiones",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+          ),
+          SizedBox(height: 4),
+          // Muestra los totales facturados en el rango seleccionado.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Ventas", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 47, 202, 0))),
+                  SizedBox(height: 4),
+                  Text("\$${aggregatedSales.toStringAsFixed(2)}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Comisiones", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 179, 211, 0))),
+                  SizedBox(height: 4),
+                  Text("\$${aggregatedCommission.toStringAsFixed(2)}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: LineChart(
+              LineChartData(
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: Colors.white,
+                    tooltipRoundedRadius: 8,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        return LineTooltipItem(
+                          "\$${spot.y.toStringAsFixed(2)}",
+                          TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.grey.withOpacity(0.2),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= timePoints.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final dt = timePoints[index];
+                        String label = useDaily
+                            ? DateFormat('dd/MM').format(dt)
+                            : DateFormat('MMM').format(dt).toUpperCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Transform.rotate(
+                            angle: -0.3,
+                            child: Text(
+                              label,
+                              style: const TextStyle(fontSize: 10, color: Colors.black87),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                minY: 0,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: ventasSpots,
+                    isCurved: true,
+                    gradient: const LinearGradient(
+                      colors: [Color.fromARGB(255, 9, 255, 0), Color.fromARGB(255, 3, 255, 45)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    barWidth: 4,
+                    dotData: FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color.fromARGB(255, 3, 255, 36).withOpacity(0.2),
+                          const Color.fromARGB(255, 0, 231, 19).withOpacity(0.2),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: comisionSpots,
+                    isCurved: true,
+                    gradient: const LinearGradient(
+                      colors: [Color.fromARGB(255, 229, 255, 0), Color.fromARGB(255, 232, 236, 1)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    barWidth: 4,
+                    dotData: FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color.fromARGB(255, 87, 119, 0).withOpacity(0.2),
+                          const Color.fromARGB(255, 159, 161, 4).withOpacity(0.2),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                     ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _dashboardCard(String title, IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
@@ -312,265 +599,27 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     );
   }
 
-  // Selección del rango de fechas
-  void _seleccionarRangoFechas() async {
-    final rango = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      initialDateRange: _rangoFechas ??
-          DateTimeRange(
-            start: DateTime.now().subtract(const Duration(days: 30)),
-            end: DateTime.now(),
+  void _abrirArbolReferidos() {
+    if (currentUserName != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReferidosTreeScreen(
+            rootId: currentUserId,
+            rootName: currentUserName!,
           ),
-    );
-
-    if (rango != null) {
-      setState(() {
-        _rangoFechas = rango;
-      });
-    }
-  }
-
-  // Construcción del gráfico de ventas y comisiones filtrado por rango
-  Widget _buildSalesChart() {
-    final now = DateTime.now();
-    final DateTime startDate = _rangoFechas?.start ?? DateTime(now.year, now.month - 11, 1);
-    final DateTime endDate = _rangoFechas?.end ?? now;
-
-    final List<DateTime> monthsInRange = [];
-    DateTime cursor = DateTime(startDate.year, startDate.month, 1);
-    while (!cursor.isAfter(endDate)) {
-      monthsInRange.add(cursor);
-      if (cursor.month == 12) {
-        cursor = DateTime(cursor.year + 1, 1, 1);
-      } else {
-        cursor = DateTime(cursor.year, cursor.month + 1, 1);
-      }
-    }
-
-    final List<FlSpot> ventasSpots = [];
-    final List<FlSpot> comisionSpots = [];
-
-    for (int i = 0; i < monthsInRange.length; i++) {
-      final m = monthsInRange[i];
-      final key = "${m.year}-${m.month.toString().padLeft(2, '0')}";
-      final v = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
-      final c = comisionesMensuales[key] ?? 0;
-      ventasSpots.add(FlSpot(i.toDouble(), v));
-      comisionSpots.add(FlSpot(i.toDouble(), c));
-    }
-
-    String lastKey = "";
-    double currentSales = 0;
-    double currentCommission = 0;
-    if (monthsInRange.isNotEmpty) {
-      final lastDate = monthsInRange.last;
-      lastKey = "${lastDate.year}-${lastDate.month.toString().padLeft(2, '0')}";
-      currentSales = double.tryParse(ventasMensuales[lastKey]?.toString() ?? '0') ?? 0;
-      currentCommission = comisionesMensuales[lastKey] ?? 0;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _rangoFechas != null
-                ? "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}"
-                : "Gráfico de Ventas y Comisiones",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Ventas", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 47, 202, 0))),
-                  SizedBox(height: 4),
-                  Text(
-                    "\$${currentSales.toStringAsFixed(2)}",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Comisiones", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 179, 211, 0))),
-                  SizedBox(height: 4),
-                  Text(
-                    "\$${currentCommission.toStringAsFixed(2)}",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: LineChart(
-              LineChartData(
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    tooltipBgColor: Colors.white,
-                    tooltipRoundedRadius: 8,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        return LineTooltipItem(
-                          "\$${spot.y.toStringAsFixed(2)}",
-                          TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.grey.withOpacity(0.2),
-                    strokeWidth: 1,
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index < 0 || index >= monthsInRange.length) {
-                          return const SizedBox();
-                        }
-                        final date = monthsInRange[index];
-                        final monthString = DateFormat('MMM').format(date);
-                        return Text(monthString.toUpperCase());
-                      },
-                    ),
-                  ),
-                ),
-                minY: 0,
-                lineBarsData: [
-                  // Línea de Ventas
-                  LineChartBarData(
-                    spots: ventasSpots,
-                    isCurved: true,
-                    gradient: const LinearGradient(
-                      colors: [Color.fromARGB(255, 9, 255, 0), Color.fromARGB(255, 3, 255, 45)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    barWidth: 4,
-                    dotData: FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color.fromARGB(255, 3, 255, 36).withOpacity(0.2),
-                          const Color.fromARGB(255, 0, 231, 19).withOpacity(0.2),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                    ),
-                  ),
-                  // Línea de Comisiones
-                  LineChartBarData(
-                    spots: comisionSpots,
-                    isCurved: true,
-                    gradient: const LinearGradient(
-                      colors: [Color.fromARGB(255, 229, 255, 0), Color.fromARGB(255, 232, 236, 1)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    barWidth: 4,
-                    dotData: FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color.fromARGB(255, 87, 119, 0).withOpacity(0.2),
-                          const Color.fromARGB(255, 159, 161, 4).withOpacity(0.2),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _agregarVentaMes() async {
-    final controller = TextEditingController();
-    final now = DateTime.now();
-    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-
-    final cantidad = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Registrar ventas en $key"),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(labelText: "Monto a registrar"),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text("Guardar"),
-          ),
-        ],
-      ),
-    );
-
-    if (cantidad == null || cantidad.isEmpty) return;
-    final monto = double.tryParse(cantidad);
-    if (monto == null) return;
-
-    final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
-
-    await FirebaseFirestore.instance.runTransaction((tx) async {
-      final snapshot = await tx.get(docRef);
-      final ventas = Map<String, dynamic>.from(snapshot.data()?['ventasPorMes'] ?? {});
-      final actual = (ventas[key] ?? 0).toDouble();
-      ventas[key] = actual + monto;
-      tx.update(docRef, {'ventasPorMes': ventas});
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Registrado \$${monto.toStringAsFixed(2)} para $key")),
       );
-      _loadCurrentUser();
+    }
+  }
+
+  void _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => LoginRegisterScreen()),
+        (route) => false,
+      );
     }
   }
 
@@ -613,9 +662,10 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
               spacing: 20,
               runSpacing: 20,
               children: [
+                // Botón para ver comisiones ganadas por referidos y reconocimiento
                 _dashboardCard("Ver comisiones", Icons.paid, Colors.green, _verComisiones),
                 _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
-                _dashboardCard("Calculo Reconocimiento", Icons.edit_note, Colors.orange, _editarVentas),
+                _dashboardCard("Editar ventas mensuales", Icons.edit, Colors.orange, _editarVentaMes),
                 _dashboardCard("Añadir venta", Icons.add_chart, Colors.purple, _agregarVentaMes),
               ],
             ),
