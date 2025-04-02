@@ -15,7 +15,7 @@ dependencies:
 
   # Firebase Auth
   firebase_auth: ^4.17.4
-
+  intl: ^0.17.0
   # Cloud Firestore
   cloud_firestore: ^4.17.3
 

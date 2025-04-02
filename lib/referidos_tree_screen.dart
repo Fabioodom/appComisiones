@@ -8,20 +8,30 @@ class Referido {
   final double ventas;
   final DateTime fechaIngreso;
 
-  Referido({required this.id, required this.name, required this.ventas, required this.fechaIngreso});
+  Referido({
+    required this.id,
+    required this.name,
+    required this.ventas,
+    required this.fechaIngreso,
+  });
 }
 
 class ReferidosTreeScreen extends StatefulWidget {
   final String rootId;
   final String rootName;
 
-  ReferidosTreeScreen({required this.rootId, required this.rootName});
+  const ReferidosTreeScreen({
+    Key? key,
+    required this.rootId,
+    required this.rootName,
+  }) : super(key: key);
 
   @override
   _ReferidosTreeScreenState createState() => _ReferidosTreeScreenState();
 }
 
 class _ReferidosTreeScreenState extends State<ReferidosTreeScreen> {
+  /// Recupera los referidos del usuario [parentId] desde Firestore.
   Future<List<Referido>> _fetchReferidos(String parentId) async {
     final query = await FirebaseFirestore.instance
         .collection('winners')
@@ -39,6 +49,7 @@ class _ReferidosTreeScreenState extends State<ReferidosTreeScreen> {
     }).toList();
   }
 
+  /// Calcula la comisión en función de las ventas y el nivel.
   double calcularComision(double ventas, int nivel) {
     if (nivel == 2) return ventas * 0.10;
     if (nivel == 3) return ventas * 0.07;
@@ -46,31 +57,65 @@ class _ReferidosTreeScreenState extends State<ReferidosTreeScreen> {
     return 0.0;
   }
 
-  Widget _buildTree(String userId, String name, [int nivel = 1]) {
+  /// Construye recursivamente el árbol de referidos.
+  Widget _buildReferralTree(String userId, String name, int nivel) {
     return FutureBuilder<List<Referido>>(
       future: _fetchReferidos(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return ListTile(title: Text("Cargando referidos de $name..."));
+          return Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
         final referidos = snapshot.data ?? [];
 
-        return ExpansionTile(
-          title: Text("$name (Nivel $nivel)"),
-          subtitle: Text("Referidos: ${referidos.length}"),
-          children: referidos.map((r) {
-            final comision = calcularComision(r.ventas, nivel + 1);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  title: Text(r.name),
-                  subtitle: Text("Ventas: \$${r.ventas.toStringAsFixed(2)}  •  Comisión: \$${comision.toStringAsFixed(2)}"),
-                ),
-                _buildTree(r.id, r.name, nivel + 1),
-              ],
-            );
-          }).toList(),
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          elevation: 2,
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+            childrenPadding: const EdgeInsets.only(
+                left: 16.0, right: 16.0, bottom: 8.0),
+            initiallyExpanded: nivel == 1,
+            leading: CircleAvatar(
+              backgroundColor: const Color.fromARGB(255, 46, 161, 0),
+              child: Text(
+                '$nivel',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+            title: Text(
+              name,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text("Referidos: ${referidos.length}"),
+            children: referidos.map((ref) {
+              final comision = calcularComision(ref.ventas, nivel + 1);
+              return Column(
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(ref.name),
+                    subtitle: Row(
+                      children: [
+                        Text("Ventas: \$${ref.ventas.toStringAsFixed(2)}"),
+                        const SizedBox(width: 10),
+                        Text(
+                            "Comisión: \$${comision.toStringAsFixed(2)}"),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                  _buildReferralTree(ref.id, ref.name, nivel + 1),
+                ],
+              );
+            }).toList(),
+          ),
         );
       },
     );
@@ -79,24 +124,14 @@ class _ReferidosTreeScreenState extends State<ReferidosTreeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Árbol de Referidos")),
+      appBar: AppBar(
+        title: const Text("Árbol de Referidos"),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: _buildTree(widget.rootId, widget.rootName),
-        ),
+        padding: const EdgeInsets.all(16.0),
+        child: _buildReferralTree(widget.rootId, widget.rootName, 1),
       ),
     );
   }
 }
-
-// Cómo usar esta pantalla desde otra:
-// Navigator.push(
-//   context,
-//   MaterialPageRoute(
-//     builder: (_) => ReferidosTreeScreen(
-//       rootId: FirebaseAuth.instance.currentUser!.uid,
-//       rootName: 'Tu Nombre o desde Firestore',
-//     ),
-//   ),
-// );

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'referidos_tree_screen.dart';
 import 'login_register_screen.dart';
-
 
 class WinnerListScreen extends StatefulWidget {
   @override
@@ -17,15 +17,75 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   Map<String, dynamic> ventasMensuales = {};
   Map<String, double> comisionesMensuales = {};
 
+  // Variable para guardar el rango de fechas seleccionado
+  DateTimeRange? _rangoFechas;
+  // GlobalKey para el icono del calendario
+  final GlobalKey _calendarIconKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
+
   @override
   void initState() {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser!.uid;
     _loadCurrentUser();
+
+    // Mostramos el hint del calendario sutilmente cuando se cargue la pantalla
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showCalendarHint();
+    });
+  }
+
+  // Método para mostrar un overlay con el mensaje (posición ajustada para no salirse de la pantalla)
+  void _showCalendarHint() {
+    final overlay = Overlay.of(context);
+    if (overlay == null) return;
+    RenderBox renderBox = _calendarIconKey.currentContext?.findRenderObject() as RenderBox;
+    Offset position = renderBox.localToGlobal(Offset.zero);
+    Size size = renderBox.size;
+
+    double leftPos = position.dx - 100;
+    if (leftPos < 0) leftPos = 0;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: position.dy + size.height + 5,
+        left: leftPos,
+        child: Material(
+          color: Colors.transparent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Cambia el rango de fechas',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+              SizedBox(width: 5),
+              Icon(Icons.arrow_forward, color: Colors.black54, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_overlayEntry!);
+    Future.delayed(Duration(seconds: 3), () {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+    });
   }
 
   void _loadCurrentUser() async {
-    final doc = await FirebaseFirestore.instance.collection('winners').doc(currentUserId).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('winners')
+        .doc(currentUserId)
+        .get();
     final ventas = doc['ventasPorMes'] ?? {};
     final comisiones = await _calcularComisionesMensuales(currentUserId);
     setState(() {
@@ -97,11 +157,16 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     final meses = DateTime.now().difference(w.fechaIngreso).inDays ~/ 30;
 
     if (nivel == 1) {
-      if (meses == 0) total += w.ventas * 0.15;
-      else if (meses == 1) total += w.ventas * 0.18;
-      else total += w.ventas * 0.20;
-    } else if (nivel == 2) total += w.ventas * 0.10;
-    else if (nivel == 3) total += w.ventas * 0.07;
+      if (meses == 0)
+        total += w.ventas * 0.15;
+      else if (meses == 1)
+        total += w.ventas * 0.18;
+      else
+        total += w.ventas * 0.20;
+    } else if (nivel == 2)
+      total += w.ventas * 0.10;
+    else if (nivel == 3)
+      total += w.ventas * 0.07;
     else if (nivel == 4) total += w.ventas * 0.03;
 
     return total;
@@ -204,38 +269,42 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   }
 
   void _logout() async {
-  await FirebaseAuth.instance.signOut();
-  if (mounted) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => LoginRegisterScreen()),
-      (route) => false,
-    );
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => LoginRegisterScreen()),
+        (route) => false,
+      );
+    }
   }
-}
-
 
   Widget _dashboardCard(String title, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: 200,
-        padding: EdgeInsets.all(20),
+        width: 160,
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.85), color.withOpacity(0.65)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           boxShadow: [
-            BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: Offset(0, 4)),
+            BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: Offset(0, 4)),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 40, color: color),
+            Icon(icon, size: 36, color: Colors.white),
             SizedBox(height: 10),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
             )
           ],
         ),
@@ -243,58 +312,212 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     );
   }
 
+  // Selección del rango de fechas
+  void _seleccionarRangoFechas() async {
+    final rango = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _rangoFechas ??
+          DateTimeRange(
+            start: DateTime.now().subtract(const Duration(days: 30)),
+            end: DateTime.now(),
+          ),
+    );
+
+    if (rango != null) {
+      setState(() {
+        _rangoFechas = rango;
+      });
+    }
+  }
+
+  // Construcción del gráfico de ventas y comisiones filtrado por rango
   Widget _buildSalesChart() {
     final now = DateTime.now();
+    final DateTime startDate = _rangoFechas?.start ?? DateTime(now.year, now.month - 11, 1);
+    final DateTime endDate = _rangoFechas?.end ?? now;
+
+    final List<DateTime> monthsInRange = [];
+    DateTime cursor = DateTime(startDate.year, startDate.month, 1);
+    while (!cursor.isAfter(endDate)) {
+      monthsInRange.add(cursor);
+      if (cursor.month == 12) {
+        cursor = DateTime(cursor.year + 1, 1, 1);
+      } else {
+        cursor = DateTime(cursor.year, cursor.month + 1, 1);
+      }
+    }
+
     final List<FlSpot> ventasSpots = [];
     final List<FlSpot> comisionSpots = [];
 
-    for (int i = 0; i < 12; i++) {
-      final key = "${now.year}-${(i + 1).toString().padLeft(2, '0')}";
+    for (int i = 0; i < monthsInRange.length; i++) {
+      final m = monthsInRange[i];
+      final key = "${m.year}-${m.month.toString().padLeft(2, '0')}";
       final v = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
       final c = comisionesMensuales[key] ?? 0;
       ventasSpots.add(FlSpot(i.toDouble(), v));
       comisionSpots.add(FlSpot(i.toDouble(), c));
     }
 
+    String lastKey = "";
+    double currentSales = 0;
+    double currentCommission = 0;
+    if (monthsInRange.isNotEmpty) {
+      final lastDate = monthsInRange.last;
+      lastKey = "${lastDate.year}-${lastDate.month.toString().padLeft(2, '0')}";
+      currentSales = double.tryParse(ventasMensuales[lastKey]?.toString() ?? '0') ?? 0;
+      currentCommission = comisionesMensuales[lastKey] ?? 0;
+    }
+
     return Container(
-      height: 260,
-      padding: EdgeInsets.all(16),
-      margin: EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Resumen mensual", style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            _rangoFechas != null
+                ? "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}"
+                : "Gráfico de Ventas y Comisiones",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+          ),
           SizedBox(height: 4),
-          Text("(${now.year}) Ventas vs Comisiones", style: TextStyle(color: Colors.teal)),
-          SizedBox(height: 10),
-          Expanded(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Ventas", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 47, 202, 0))),
+                  SizedBox(height: 4),
+                  Text(
+                    "\$${currentSales.toStringAsFixed(2)}",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Comisiones", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 179, 211, 0))),
+                  SizedBox(height: 4),
+                  Text(
+                    "\$${currentCommission.toStringAsFixed(2)}",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          SizedBox(
+            height: 200,
             child: LineChart(
               LineChartData(
-                minY: 0,
-                gridData: FlGridData(show: true, drawVerticalLine: false),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: Colors.white,
+                    tooltipRoundedRadius: 8,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        return LineTooltipItem(
+                          "\$${spot.y.toStringAsFixed(2)}",
+                          TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.grey.withOpacity(0.2),
+                    strokeWidth: 1,
+                  ),
+                ),
                 borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= monthsInRange.length) {
+                          return const SizedBox();
+                        }
+                        final date = monthsInRange[index];
+                        final monthString = DateFormat('MMM').format(date);
+                        return Text(monthString.toUpperCase());
+                      },
+                    ),
+                  ),
+                ),
+                minY: 0,
                 lineBarsData: [
+                  // Línea de Ventas
                   LineChartBarData(
                     spots: ventasSpots,
                     isCurved: true,
-                    color: Colors.teal,
-                    barWidth: 3,
-                    belowBarData: BarAreaData(show: true, color: Colors.teal.withOpacity(0.2)),
+                    gradient: const LinearGradient(
+                      colors: [Color.fromARGB(255, 9, 255, 0), Color.fromARGB(255, 3, 255, 45)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    barWidth: 4,
                     dotData: FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color.fromARGB(255, 3, 255, 36).withOpacity(0.2),
+                          const Color.fromARGB(255, 0, 231, 19).withOpacity(0.2),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
                   ),
+                  // Línea de Comisiones
                   LineChartBarData(
                     spots: comisionSpots,
                     isCurved: true,
-                    color: Colors.deepPurple,
-                    barWidth: 3,
-                    belowBarData: BarAreaData(show: true, color: Colors.deepPurple.withOpacity(0.15)),
+                    gradient: const LinearGradient(
+                      colors: [Color.fromARGB(255, 229, 255, 0), Color.fromARGB(255, 232, 236, 1)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    barWidth: 4,
                     dotData: FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color.fromARGB(255, 87, 119, 0).withOpacity(0.2),
+                          const Color.fromARGB(255, 159, 161, 4).withOpacity(0.2),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -354,14 +577,29 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF9FAFB),
+      backgroundColor: Color.fromARGB(255, 250, 251, 249),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: Text("Panel Principal", style: TextStyle(color: Colors.black)),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color.fromARGB(255, 249, 253, 1), Color.fromARGB(255, 52, 163, 0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Text("Panel Principal", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: Icon(Icons.logout, color: Colors.black),
+            key: _calendarIconKey,
+            icon: Icon(Icons.date_range, color: Colors.white),
+            onPressed: _seleccionarRangoFechas,
+          ),
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.white),
             onPressed: _logout,
           )
         ],
@@ -377,8 +615,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
               children: [
                 _dashboardCard("Ver comisiones", Icons.paid, Colors.green, _verComisiones),
                 _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
-                _dashboardCard("Editar mis ventas", Icons.edit_note, Colors.orange, _editarVentas),
-                _dashboardCard("Añadir venta mensual", Icons.add_chart, Colors.purple, _agregarVentaMes),
+                _dashboardCard("Calculo Reconocimiento", Icons.edit_note, Colors.orange, _editarVentas),
+                _dashboardCard("Añadir venta", Icons.add_chart, Colors.purple, _agregarVentaMes),
               ],
             ),
           ],
