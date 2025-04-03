@@ -38,7 +38,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   void _showCalendarHint() {
     final overlay = Overlay.of(context);
     if (overlay == null) return;
-    RenderBox renderBox = _calendarIconKey.currentContext?.findRenderObject() as RenderBox;
+    RenderBox renderBox =
+        _calendarIconKey.currentContext?.findRenderObject() as RenderBox;
     Offset position = renderBox.localToGlobal(Offset.zero);
     Size size = renderBox.size;
 
@@ -335,234 +336,287 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     }
   }
 
-  // Construcción del gráfico.
-  // Se usa resolución diaria si el rango es menor a 32 días; de lo contrario, mensual.
-  // Además, se calcula la suma total de ventas y comisiones facturadas en el rango.
+  // Construcción del gráfico en resolución mensual.
   Widget _buildSalesChart() {
-    final now = DateTime.now();
-    final DateTime startDate =
-        _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
-    final DateTime endDate = _rangoFechas?.end ?? now;
+  final now = DateTime.now();
+  final DateTime startDate = _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
+  final DateTime endDate = _rangoFechas?.end ?? now;
 
-    final bool useDaily = _rangoFechas != null &&
-        endDate.difference(startDate).inDays < 32;
+  List<DateTime> timePoints = [];
+  DateTime cursor = DateTime(startDate.year, startDate.month, 1);
+  while (!cursor.isAfter(endDate)) {
+    timePoints.add(cursor);
+    cursor = DateTime(cursor.year, cursor.month + 1, 1);
+  }
 
-    // Genera la lista de puntos en el eje X (días o meses)
-    List<DateTime> timePoints = [];
-    if (useDaily) {
-      DateTime cursor = startDate;
-      while (!cursor.isAfter(endDate)) {
-        timePoints.add(cursor);
-        cursor = cursor.add(Duration(days: 1));
+  if (timePoints.length == 1) {
+    timePoints.add(DateTime(timePoints[0].year, timePoints[0].month + 1, 1));
+  }
+
+  final List<FlSpot> ventasSpots = [];
+  final List<FlSpot> comisionSpots = [];
+  for (int i = 0; i < timePoints.length; i++) {
+    final dt = timePoints[i];
+    final key = "${dt.year}-${dt.month.toString().padLeft(2, '0')}";
+    final v = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+    final c = comisionesMensuales[key] ?? 0;
+    ventasSpots.add(FlSpot(i.toDouble(), v));
+    comisionSpots.add(FlSpot(i.toDouble(), c));
+  }
+
+  double aggregatedSales = 0;
+  double aggregatedCommission = 0;
+  if (_rangoFechas != null) {
+    final rangeStart = _rangoFechas!.start;
+    final rangeEnd = _rangoFechas!.end;
+    ventasMensuales.forEach((key, value) {
+      final monthDate = DateTime.parse("$key-01");
+      if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+        aggregatedSales += double.tryParse(value.toString()) ?? 0;
       }
-    } else {
-      DateTime cursor = DateTime(startDate.year, startDate.month, 1);
-      while (!cursor.isAfter(endDate)) {
-        timePoints.add(cursor);
-        if (cursor.month == 12) {
-          cursor = DateTime(cursor.year + 1, 1, 1);
-        } else {
-          cursor = DateTime(cursor.year, cursor.month + 1, 1);
-        }
+    });
+    comisionesMensuales.forEach((key, value) {
+      final monthDate = DateTime.parse("$key-01");
+      if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+        aggregatedCommission += value;
       }
-    }
+    });
+  } else {
+    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+    aggregatedSales = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+    aggregatedCommission = comisionesMensuales[key] ?? 0;
+  }
 
-    // Si se obtiene solo un punto, se duplica para dibujar la línea.
-    if (timePoints.length == 1) {
-      timePoints.add(timePoints[0].add(useDaily ? Duration(days: 1) : Duration(days: 30)));
-    }
-
-    // Para el gráfico se usan los datos mensuales.
-    final List<FlSpot> ventasSpots = [];
-    final List<FlSpot> comisionSpots = [];
-    for (int i = 0; i < timePoints.length; i++) {
-      final dt = timePoints[i];
-      final key = "${dt.year}-${dt.month.toString().padLeft(2, '0')}";
-      final v = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
-      final c = comisionesMensuales[key] ?? 0;
-      ventasSpots.add(FlSpot(i.toDouble(), v));
-      comisionSpots.add(FlSpot(i.toDouble(), c));
-    }
-
-    // Calcula la suma total de ventas y comisiones en el rango.
-    double aggregatedSales = 0;
-    double aggregatedCommission = 0;
-    if (_rangoFechas != null) {
-      final DateTime rangeStart = _rangoFechas!.start;
-      final DateTime rangeEnd = _rangoFechas!.end;
-      ventasMensuales.forEach((key, value) {
-        DateTime monthDate = DateTime.parse("$key-01");
-        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
-          aggregatedSales += double.tryParse(value.toString()) ?? 0;
-        }
-      });
-      comisionesMensuales.forEach((key, value) {
-        DateTime monthDate = DateTime.parse("$key-01");
-        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
-          aggregatedCommission += value;
-        }
-      });
-    } else {
-      String key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-      aggregatedSales = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
-      aggregatedCommission = comisionesMensuales[key] ?? 0;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _rangoFechas != null
-                ? "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}"
-                : "Gráfico de Ventas y Comisiones",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
-          ),
-          SizedBox(height: 4),
-          // Muestra los totales facturados en el rango seleccionado.
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Ventas", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 47, 202, 0))),
-                  SizedBox(height: 4),
-                  Text("\$${aggregatedSales.toStringAsFixed(2)}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                ],
+  return Container(
+    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.only(bottom: 24),
+    decoration: BoxDecoration(
+      color: Color(0xFFF5F7FA),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _rangoFechas != null
+              ? "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}"
+              : "Gráfico de Ventas y Comisiones",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+        ),
+        SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Ventas", style: TextStyle(fontSize: 16, color: Colors.green[700])),
+                SizedBox(height: 4),
+                Text("\$${aggregatedSales.toStringAsFixed(2)}",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Comisiones", style: TextStyle(fontSize: 16, color: Colors.amber[800])),
+                SizedBox(height: 4),
+                Text("\$${aggregatedCommission.toStringAsFixed(2)}",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ],
+        ),
+        SizedBox(height: 12),
+        // Leyenda
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Row(
+              children: [
+                Container(width: 10, height: 10, color: Colors.green),
+                SizedBox(width: 4),
+                Text("Ventas"),
+              ],
+            ),
+            SizedBox(width: 16),
+            Row(
+              children: [
+                Container(width: 10, height: 10, color: Colors.amber[700]),
+                SizedBox(width: 4),
+                Text("Comisiones"),
+              ],
+            ),
+          ],
+        ),
+        SizedBox(height: 16),
+        SizedBox(
+          height: 220,
+          child: LineChart(
+            LineChartData(
+              lineTouchData: LineTouchData(
+                enabled: true,
+                touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                  if (!event.isInterestedForInteractions || touchResponse == null || touchResponse.lineBarSpots == null) return;
+                  if (event is FlTapUpEvent) {
+                    final index = touchResponse.lineBarSpots![0].x.toInt();
+                    if (index >= 0 && index < timePoints.length) {
+                      final selectedMonth = timePoints[index];
+                      final key = "${selectedMonth.year}-${selectedMonth.month.toString().padLeft(2, '0')}";
+                      final sales = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+                      final commission = comisionesMensuales[key] ?? 0;
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text("Detalle para ${DateFormat('MMMM yyyy', 'es').format(selectedMonth)}"),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Ventas: \$${sales.toStringAsFixed(2)}"),
+                              SizedBox(height: 8),
+                              Text("Comisiones: \$${commission.toStringAsFixed(2)}"),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text("Cerrar"),
+                            )
+                          ],
+                        ),
+                      );
+                    }
+                  }
+                },
+                touchTooltipData: LineTouchTooltipData(
+                  tooltipBgColor: Colors.white,
+                  tooltipRoundedRadius: 8,
+                  getTooltipItems: (touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      return LineTooltipItem(
+                        "\$${spot.y.toStringAsFixed(2)}",
+                        TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                      );
+                    }).toList();
+                  },
+                ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Comisiones", style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 179, 211, 0))),
-                  SizedBox(height: 4),
-                  Text("\$${aggregatedCommission.toStringAsFixed(2)}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                ],
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: Colors.grey.withOpacity(0.2),
+                  strokeWidth: 1,
+                ),
               ),
-            ],
-          ),
-          SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: LineChart(
-              LineChartData(
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    tooltipBgColor: Colors.white,
-                    tooltipRoundedRadius: 8,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        return LineTooltipItem(
-                          "\$${spot.y.toStringAsFixed(2)}",
-                          TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-                        );
-                      }).toList();
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: 1,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= timePoints.length) {
+                        return const SizedBox.shrink();
+                      }
+                      final dt = timePoints[index];
+                      String label = DateFormat('MMM').format(dt).toUpperCase();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Transform.rotate(
+                          angle: -0.3,
+                          child: Text(
+                            label,
+                            style: const TextStyle(fontSize: 10, color: Colors.black87),
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.grey.withOpacity(0.2),
-                    strokeWidth: 1,
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      interval: 1,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index < 0 || index >= timePoints.length) {
-                          return const SizedBox.shrink();
-                        }
-                        final dt = timePoints[index];
-                        String label = useDaily
-                            ? DateFormat('dd/MM').format(dt)
-                            : DateFormat('MMM').format(dt).toUpperCase();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Transform.rotate(
-                            angle: -0.3,
-                            child: Text(
-                              label,
-                              style: const TextStyle(fontSize: 10, color: Colors.black87),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                minY: 0,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: ventasSpots,
-                    isCurved: true,
-                    gradient: const LinearGradient(
-                      colors: [Color.fromARGB(255, 9, 255, 0), Color.fromARGB(255, 3, 255, 45)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    barWidth: 4,
-                    dotData: FlDotData(show: true),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color.fromARGB(255, 3, 255, 36).withOpacity(0.2),
-                          const Color.fromARGB(255, 0, 231, 19).withOpacity(0.2),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                    ),
-                  ),
-                  LineChartBarData(
-                    spots: comisionSpots,
-                    isCurved: true,
-                    gradient: const LinearGradient(
-                      colors: [Color.fromARGB(255, 229, 255, 0), Color.fromARGB(255, 232, 236, 1)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    barWidth: 4,
-                    dotData: FlDotData(show: true),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color.fromARGB(255, 87, 119, 0).withOpacity(0.2),
-                          const Color.fromARGB(255, 159, 161, 4).withOpacity(0.2),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                     ),
-                    ),
-                  ),
-                ],
               ),
+              minY: 0,
+              lineBarsData: [
+                LineChartBarData(
+                  spots: ventasSpots,
+                  isCurved: true,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00C853), Color(0xFFB9F6CA)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  barWidth: 4,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                      radius: 4,
+                      color: Colors.white,
+                      strokeWidth: 2,
+                      strokeColor: bar.gradient?.colors.first ?? Colors.green,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFF00C853).withOpacity(0.2),
+                        Color(0xFFB9F6CA).withOpacity(0.1),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+                LineChartBarData(
+                  spots: comisionSpots,
+                  isCurved: true,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD600), Color(0xFFFFF59D)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  barWidth: 4,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                      radius: 4,
+                      color: Colors.white,
+                      strokeWidth: 2,
+                      strokeColor: bar.gradient?.colors.first ?? Colors.amber,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFFFFD600).withOpacity(0.2),
+                        Color(0xFFFFF59D).withOpacity(0.1),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+              ],
             ),
+            duration: Duration(milliseconds: 800),
+            curve: Curves.easeInOut,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 
 
   Widget _dashboardCard(String title, IconData icon, Color color, VoidCallback onTap) {
@@ -622,47 +676,115 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       );
     }
   }
+  Widget _buildBanner() {
+  return Container(
+    // Espacio alrededor del banner
+    margin: const EdgeInsets.only(bottom: 20),
+    // Decoración para la imagen de fondo
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      image: DecorationImage(
+        // Puedes usar NetworkImage, AssetImage, etc.
+        // Aquí se muestra un ejemplo con AssetImage
+        image: AssetImage('assets/animations/logo.gif'),
+        fit: BoxFit.cover,
+      ),
+    ),
+    child: ClipRRect(
+      // Recorta los bordes del contenedor hijo
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        // Fondo semitransparente para resaltar el texto
+        color: Colors.black.withOpacity(0.3),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "WinoWin",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Ingresos extras con Win O Win.\n"
+              "Gracias al excelente plan de regalías nuestros socios pueden llegar a recibir de nuestra winowin.shop",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                // Acción al pulsar el botón
+                // Por ejemplo, abrir una nueva pantalla o mostrar un diálogo
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text("Read more"),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color.fromARGB(255, 250, 251, 249),
       appBar: AppBar(
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color.fromARGB(255, 249, 253, 1), Color.fromARGB(255, 52, 163, 0)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        title: Text("Panel Principal", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            key: _calendarIconKey,
-            icon: Icon(Icons.date_range, color: Colors.white),
-            onPressed: _seleccionarRangoFechas,
-          ),
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
-          )
-        ],
+  leading: Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: Image.asset('assets/animations/logo.webp'),
+  ),
+  centerTitle: true,
+  elevation: 0,
+  backgroundColor: Colors.transparent,
+  flexibleSpace: Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Color.fromARGB(255, 87, 88, 1), Color.fromARGB(255, 52, 163, 0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
+    ),
+  ),
+  title: Text(
+    "Panel Principal",
+    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+  ),
+  actions: [
+    IconButton(
+      key: _calendarIconKey,
+      icon: Icon(Icons.date_range, color: Colors.white),
+      onPressed: _seleccionarRangoFechas,
+    ),
+    IconButton(
+      icon: Icon(Icons.logout, color: Colors.white),
+      onPressed: _logout,
+    )
+  ],
+),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             _buildSalesChart(),
+             _buildBanner(),
             Wrap(
               spacing: 20,
               runSpacing: 20,
               children: [
-                // Botón para ver comisiones ganadas por referidos y reconocimiento
                 _dashboardCard("Ver comisiones", Icons.paid, Colors.green, _verComisiones),
                 _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
                 _dashboardCard("Editar ventas mensuales", Icons.edit, Colors.orange, _editarVentaMes),
