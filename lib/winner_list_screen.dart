@@ -810,9 +810,14 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
             onPressed: _seleccionarRangoFechas,
           ),
           IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
-          )
+  icon: const Icon(Icons.logout, color: Colors.white), // 👈 Asegúrate de poner el color aquí
+  onPressed: () async {
+    await FirebaseAuth.instance.signOut();
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
+            },
+          ),
         ],
       ),
       body: SingleChildScrollView(

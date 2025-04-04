@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
 
 class LoginRegisterScreen extends StatefulWidget {
+  const LoginRegisterScreen({super.key});
+
   @override
   _LoginRegisterScreenState createState() => _LoginRegisterScreenState();
 }
@@ -24,7 +26,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
 
     if (!isLogin && referido.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Debes ingresar un código de referido para registrarte.')),
+        const SnackBar(content: Text('Debes ingresar un código de referido para registrarte.')),
       );
       return;
     }
@@ -34,8 +36,8 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
     try {
       if (isLogin) {
         await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: pass);
+        // No navegamos manualmente, el AuthWrapper detectará el login automáticamente
       } else {
-        // Validar que el código de referido existe en la base de datos
         final refSnapshot = await FirebaseFirestore.instance
             .collection('winners')
             .where('codigo', isEqualTo: referido)
@@ -44,13 +46,12 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
 
         if (refSnapshot.docs.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('El código de referido no es válido.')),
+            const SnackBar(content: Text('El código de referido no es válido.')),
           );
           setState(() => isLoading = false);
           return;
         }
 
-        // Solicitar ventas iniciales por mes
         final ventasController = TextEditingController();
         final now = DateTime.now();
         final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
@@ -62,13 +63,13 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
             content: TextField(
               controller: ventasController,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: "Ventas iniciales en €"),
+              decoration: const InputDecoration(labelText: "Ventas iniciales en €"),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, ventasController.text.trim()),
-                child: Text("Guardar"),
+                child: const Text("Guardar"),
               ),
             ],
           ),
@@ -86,6 +87,8 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           'ventasPorMes': ventasPorMes,
           'referidoPor': refSnapshot.docs.first.id,
         });
+
+        // No navegamos manualmente, el AuthWrapper detectará el login automáticamente
       }
     } catch (e) {
       if (mounted) {
@@ -112,17 +115,17 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF9FAFB),
+      backgroundColor: const Color(0xFFF9FAFB),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Container(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
-                BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 12, offset: Offset(0, 4)),
+                BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4)),
               ],
             ),
             child: Column(
@@ -133,42 +136,42 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
                   width: 160,
                   repeat: true,
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Text(
                   isLogin ? 'Iniciar Sesión' : 'Crear Cuenta',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 if (!isLogin) ...[
                   _buildTextField(_nameController, 'Nombre'),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _buildTextField(_referidoController, 'Código de Winner que te invitó'),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                 ],
                 _buildTextField(_emailController, 'Correo electrónico'),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _buildTextField(_passController, 'Contraseña', isPassword: true),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 isLoading
-                    ? CircularProgressIndicator()
+                    ? const CircularProgressIndicator()
                     : ElevatedButton(
                         onPressed: _submit,
                         style: ElevatedButton.styleFrom(
-                          minimumSize: Size(double.infinity, 50),
+                          minimumSize: const Size(double.infinity, 50),
                           backgroundColor: Colors.teal,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Text(
                           isLogin ? 'Entrar' : 'Registrarse',
-                          style: TextStyle(fontSize: 16),
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 TextButton(
                   onPressed: () => setState(() => isLogin = !isLogin),
                   child: Text(
                     isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión',
-                    style: TextStyle(color: Colors.teal),
+                    style: const TextStyle(color: Colors.teal),
                   ),
                 )
               ],
