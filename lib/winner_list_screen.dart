@@ -30,7 +30,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   String? currentUserName;
   Map<String, dynamic> ventasMensuales = {};  // Llaves en formato "yyyy-MM"
 
-  
+
   Map<String, double> comisionesMensuales = {}; // Llaves en formato "yyyy-MM"
 
   // Rango de fechas seleccionado
@@ -233,7 +233,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
           children: [
             Text("Total: \€${totalComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 18)),
             SizedBox(height: 8),
-            Text("Reconocimiento: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
+            Text("Reconocimiento WoW: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
           ],
         ),
         actions: [
