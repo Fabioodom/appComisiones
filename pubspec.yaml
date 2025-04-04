@@ -18,7 +18,7 @@ dependencies:
   intl: ^0.19.0
   # Cloud Firestore
   cloud_firestore: ^4.17.3
-
+  nimble_charts: ^0.5.0-beta
   # Para usar controladores de texto, navegación y diseño
   cupertino_icons: ^1.0.6
   http: ^0.13.6

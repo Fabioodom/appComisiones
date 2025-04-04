@@ -387,11 +387,18 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     aggregatedCommission = comisionesMensuales[key] ?? 0;
   }
 
+  final double maxY = [
+    ...ventasSpots.map((e) => e.y),
+    ...comisionSpots.map((e) => e.y),
+  ].fold(0, (prev, curr) => curr > prev ? curr : prev);
+
+  final double intervalY = maxY == 0 ? 1 : (maxY / 4).ceilToDouble(); // evita intervalo 0
+
   return Container(
     padding: const EdgeInsets.all(16),
     margin: const EdgeInsets.only(bottom: 24),
     decoration: BoxDecoration(
-      color: Color(0xFFF5F7FA),
+      color: const Color(0xFFF5F7FA),
       borderRadius: BorderRadius.circular(20),
       boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
     ),
@@ -402,9 +409,9 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
           _rangoFechas != null
               ? "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}"
               : "Gráfico de Ventas y Comisiones",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -412,49 +419,100 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Ventas", style: TextStyle(fontSize: 16, color: Colors.green[700])),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text("\$${aggregatedSales.toStringAsFixed(2)}",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Comisiones", style: TextStyle(fontSize: 16, color: Colors.amber[800])),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text("\$${aggregatedCommission.toStringAsFixed(2)}",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
           ],
         ),
-        SizedBox(height: 12),
-        // Leyenda
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Row(
               children: [
                 Container(width: 10, height: 10, color: Colors.green),
-                SizedBox(width: 4),
-                Text("Ventas"),
+                const SizedBox(width: 4),
+                const Text("Ventas"),
               ],
             ),
-            SizedBox(width: 16),
+            const SizedBox(width: 16),
             Row(
               children: [
-                Container(width: 10, height: 10, color: Colors.amber[700]),
-                SizedBox(width: 4),
-                Text("Comisiones"),
+                Container(width: 10, height: 10, color: Colors.amber),
+                const SizedBox(width: 4),
+                const Text("Comisiones"),
               ],
             ),
           ],
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         SizedBox(
           height: 220,
           child: LineChart(
             LineChartData(
+              minY: 0,
+              maxY: maxY + intervalY,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: Colors.grey.withOpacity(0.2),
+                  strokeWidth: 1,
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 64,
+                    interval: intervalY,
+                    getTitlesWidget: (value, meta) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: Text(
+                          "\$${value.toInt()}",
+                          style: const TextStyle(fontSize: 10, color: Colors.black54),
+                          textAlign: TextAlign.right,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: 1,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= timePoints.length) return const SizedBox.shrink();
+                      final dt = timePoints[index];
+                      String label = DateFormat('MMM', 'es').format(dt).toUpperCase();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Transform.rotate(
+                          angle: -0.3,
+                          child: Text(label, style: const TextStyle(fontSize: 10, color: Colors.black87)),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
               lineTouchData: LineTouchData(
                 enabled: true,
                 touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
@@ -475,14 +533,14 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text("Ventas: \$${sales.toStringAsFixed(2)}"),
-                              SizedBox(height: 8),
+                              const SizedBox(height: 8),
                               Text("Comisiones: \$${commission.toStringAsFixed(2)}"),
                             ],
                           ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context),
-                              child: Text("Cerrar"),
+                              child: const Text("Cerrar"),
                             )
                           ],
                         ),
@@ -495,54 +553,24 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                   tooltipRoundedRadius: 8,
                   getTooltipItems: (touchedSpots) {
                     return touchedSpots.map((spot) {
+                      final index = spot.x.toInt();
+                      if (index < 0 || index >= timePoints.length) return null;
+                      final dt = timePoints[index];
+                      final label = DateFormat('MMMM yyyy', 'es').format(dt);
+                      final isVenta = spot.barIndex == 0;
+                      final title = isVenta ? 'Ventas' : 'Comisiones';
                       return LineTooltipItem(
-                        "\$${spot.y.toStringAsFixed(2)}",
-                        TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                        "$label\n$title: \$${spot.y.toStringAsFixed(2)}",
+                        const TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
                       );
                     }).toList();
                   },
                 ),
               ),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                getDrawingHorizontalLine: (value) => FlLine(
-                  color: Colors.grey.withOpacity(0.2),
-                  strokeWidth: 1,
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      final index = value.toInt();
-                      if (index < 0 || index >= timePoints.length) {
-                        return const SizedBox.shrink();
-                      }
-                      final dt = timePoints[index];
-                      String label = DateFormat('MMM').format(dt).toUpperCase();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Transform.rotate(
-                          angle: -0.3,
-                          child: Text(
-                            label,
-                            style: const TextStyle(fontSize: 10, color: Colors.black87),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              minY: 0,
               lineBarsData: [
                 LineChartBarData(
                   spots: ventasSpots,
@@ -567,8 +595,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        Color(0xFF00C853).withOpacity(0.2),
-                        Color(0xFFB9F6CA).withOpacity(0.1),
+                        const Color(0xFF00C853).withOpacity(0.2),
+                        const Color(0xFFB9F6CA).withOpacity(0.1),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -598,8 +626,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        Color(0xFFFFD600).withOpacity(0.2),
-                        Color(0xFFFFF59D).withOpacity(0.1),
+                        const Color(0xFFFFD600).withOpacity(0.2),
+                        const Color(0xFFFFF59D).withOpacity(0.1),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -608,7 +636,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                 ),
               ],
             ),
-            duration: Duration(milliseconds: 800),
+            duration: const Duration(milliseconds: 800),
             curve: Curves.easeInOut,
           ),
         ),
@@ -616,6 +644,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     ),
   );
 }
+
 
 
 
