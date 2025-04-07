@@ -201,138 +201,188 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
 
   // Al pulsar "Ver comisiones", se muestran las comisiones ganadas por referidos y el reconocimiento.
   void _verComisiones() async {
-    double totalComision = 0;
-    if (_rangoFechas != null) {
-      final DateTime rangeStart = _rangoFechas!.start;
+  final user = await _fetchWinner(currentUserId);
 
-      final DateTime rangeEnd = _rangoFechas!.end;
-      comisionesMensuales.forEach((key, value) {
-        // Se asume que la llave es "yyyy-MM"; se crea un DateTime con el primer día del mes.
-        DateTime monthDate = DateTime.parse("$key-01");
-        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
-          totalComision += value;
-        }
-      });
-    } else {
-      // Si no se ha seleccionado rango, se suman todas las comisiones.
-      totalComision = comisionesMensuales.values.fold(0, (prev, element) => prev + element);
-    }
+  // Obtener ventas propias totales desde el campo 'ventasPropias'
+  final doc = await FirebaseFirestore.instance.collection('winners').doc(currentUserId).get();
+  double ventasPropias = (doc.data()?['ventasPropias'] ?? 0).toDouble();
 
-    // Se obtiene la cantidad de referidos para calcuu  lar el reconocimiento.
-    final referidos = await _fetchReferidos(currentUserId);
+  final double baseTotal = ventasPropias * 0.20; // 20% de comisión por ventas propias
+  double referidosComision = 0;
 
-    final reco = _obtenerReconocimiento(totalComision, referidos.length);
+  if (_rangoFechas != null) {
+    final DateTime rangeStart = _rangoFechas!.start;
+    final DateTime rangeEnd = _rangoFechas!.end;
+    comisionesMensuales.forEach((key, value) {
+      DateTime monthDate = DateTime.parse("$key-01");
+      if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+        referidosComision += value;
+      }
+    });
+  } else {
+    referidosComision = comisionesMensuales.values.fold(0, (prev, element) => prev + element);
+  }
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Comisiones ganadas", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Total: \€${totalComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 18)),
-            SizedBox(height: 8),
-            Text("Reconocimiento WoW: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cerrar", style: TextStyle(color: Colors.teal)),
-          )
+  final totalComision = baseTotal + referidosComision;
+  final referidos = await _fetchReferidos(currentUserId);
+  final reco = _obtenerReconocimiento(totalComision, referidos.length);
+
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text("Comisiones ganadas", style: TextStyle(fontWeight: FontWeight.bold)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)}", style: TextStyle(fontSize: 16)),
+          SizedBox(height: 4),
+          Text("Por tus referidos: €${referidosComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 16)),
+          SizedBox(height: 8),
+          Text("Total: €${totalComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          SizedBox(height: 8),
+          Text("Reconocimiento WoW: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
         ],
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text("Cerrar", style: TextStyle(color: Colors.teal)),
+        ),
+      ],
+    ),
+  );
+}
+
 
   // Permite editar las ventas mensuales del mes actual (clave "yyyy-MM")
   void _editarVentaMes() async {
-    final now = DateTime.now();
-    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-    final currentValue = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
-    final controller = TextEditingController(text: currentValue.toString());
-    final result = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Editar ventas para $key"),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            labelText: "Nuevo total de ventas",
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+  final now = DateTime.now();
+  final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+  final currentValue = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+  final controller = TextEditingController(text: currentValue.toString());
+
+  final result = await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text("Editar ventas para $key"),
+      content: TextField(
+        controller: controller,
+        keyboardType: TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: "Nuevo total de ventas",
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(shape: StadiumBorder()),
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text("Guardar"),
-          ),
-        ],
       ),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      final newSales = double.tryParse(result);
-      if (newSales != null) {
-        await FirebaseFirestore.instance
-            .collection('winners')
-            .doc(currentUserId)
-            .update({'ventasPorMes.$key': newSales});
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("Ventas para $key actualizadas a \€${newSales.toStringAsFixed(2)}")));
-        _loadCurrentUser();
-      }
-    }
-  }
-
-  // Agregar ventas para el mes actual (acumulando el valor)
-  void _agregarVentaMes() async {
-    final controller = TextEditingController();
-    final now = DateTime.now();
-    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-    final cantidad = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Registrar ventas en $key"),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(labelText: "Monto a registrar"),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(shape: StadiumBorder()),
+          onPressed: () => Navigator.pop(context, controller.text.trim()),
+          child: Text("Guardar"),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text("Guardar"),
-          ),
-        ],
-      ),
-    );
+      ],
+    ),
+  );
 
-    if (cantidad == null || cantidad.isEmpty) return;
-    final monto = double.tryParse(cantidad);
-    if (monto == null) return;
+  if (result != null && result.isNotEmpty) {
+    final newSales = double.tryParse(result);
+    if (newSales == null) return;
+
     final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
 
     await FirebaseFirestore.instance.runTransaction((tx) async {
       final snapshot = await tx.get(docRef);
-      final ventas = Map<String, dynamic>.from(snapshot.data()?['ventasPorMes'] ?? {});
-      final actual = (ventas[key] ?? 0).toDouble();
-      ventas[key] = actual + monto;
-      tx.update(docRef, {'ventasPorMes': ventas});
+      final data = snapshot.data() ?? {};
+
+      // Ventas anteriores para el mes
+      final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
+      final oldSales = (ventas[key] ?? 0).toDouble();
+
+      // Diferencia entre nuevo y anterior
+      final diferencia = newSales - oldSales;
+
+      // Actualizar ventasPorMes
+      ventas[key] = newSales;
+
+      // Actualizar ventasPropias
+      final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
+      final ventasPropiasNueva = ventasPropiasActual + diferencia;
+
+      tx.update(docRef, {
+        'ventasPorMes': ventas,
+        'ventasPropias': ventasPropiasNueva,
+      });
     });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Registrado \€${monto.toStringAsFixed(2)} para $key")));
-      _loadCurrentUser();
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Ventas para $key actualizadas a \€${newSales.toStringAsFixed(2)}")),
+    );
+    _loadCurrentUser();
   }
+}
+
+
+  // Agregar ventas para el mes actual (acumulando el valor)
+  void _agregarVentaMes() async {
+  final controller = TextEditingController();
+  final now = DateTime.now();
+  final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+  final cantidad = await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text("Registrar ventas en $key"),
+      content: TextField(
+        controller: controller,
+        keyboardType: TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: "Monto a registrar"),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, controller.text.trim()),
+          child: Text("Guardar"),
+        ),
+      ],
+    ),
+  );
+
+  if (cantidad == null || cantidad.isEmpty) return;
+  final monto = double.tryParse(cantidad);
+  if (monto == null) return;
+
+  final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
+
+  await FirebaseFirestore.instance.runTransaction((tx) async {
+    final snapshot = await tx.get(docRef);
+    final data = snapshot.data() ?? {};
+
+    // Actualizar ventasPorMes
+    final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
+    final actual = (ventas[key] ?? 0).toDouble();
+    ventas[key] = actual + monto;
+
+    // Actualizar ventasPropias
+    final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
+    final ventasPropiasNueva = ventasPropiasActual + monto;
+
+    // Guardar ambas actualizaciones
+    tx.update(docRef, {
+      'ventasPorMes': ventas,
+      'ventasPropias': ventasPropiasNueva,
+    });
+  });
+
+  if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Registrado \€${monto.toStringAsFixed(2)} para $key")),
+    );
+    _loadCurrentUser();
+  }
+}
+
 
   // Selección del rango de fechas
   void _seleccionarRangoFechas() async {
