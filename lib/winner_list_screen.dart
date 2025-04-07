@@ -172,24 +172,34 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   }
 
   double _calcularComisiones(Winner w, int nivel) {
-    double total = 0;
-    final meses = DateTime.now().difference(w.fechaIngreso).inDays ~/ 30;
+  double total = 0;
 
-    if (nivel == 1) {
-      if (meses == 0)
-        total += w.ventas * 0.15;
-      else if (meses == 1)
-        total += w.ventas * 0.18;
-      else
-        total += w.ventas * 0.20;
-    } else if (nivel == 2)
-      total += w.ventas * 0.10;
-    else if (nivel == 3)
-      total += w.ventas * 0.07;
-    else if (nivel == 4) total += w.ventas * 0.03;
+  final now = DateTime.now();
+  final currentMonthStart = DateTime(now.year, now.month); // Inicio del mes actual
+  final mesAnterior = DateTime(now.year, now.month - 1); // Comisiones a pagar este mes vienen del mes anterior
+  final mesesDesdeIngreso = mesAnterior.difference(DateTime(w.fechaIngreso.year, w.fechaIngreso.month)).inDays ~/ 30;
 
-    return total;
+  if (nivel == 1) {
+    // Nivel 1: comisión sobre ventas propias
+    double porcentaje;
+    if (mesesDesdeIngreso < 1) {
+      porcentaje = 0.15; // Primer mes completo
+    } else if (mesesDesdeIngreso == 1) {
+      porcentaje = 0.18; // Segundo mes completo
+    } else {
+      porcentaje = 0.20; // Tercer mes en adelante
+    }
+    total += w.ventas * porcentaje;
+  } else if (nivel == 2) {
+    total += w.ventas * 0.10;
+  } else if (nivel == 3) {
+    total += w.ventas * 0.07;
+  } else if (nivel == 4) {
+    total += w.ventas * 0.03;
   }
+
+  return total;
+}
 
   String _obtenerReconocimiento(double total, int referidos) {
     if (total > 50000 && referidos > 50) return 'Zafiro Blanco';
@@ -203,13 +213,28 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   void _verComisiones() async {
   final user = await _fetchWinner(currentUserId);
 
-  // Obtener ventas propias totales desde el campo 'ventasPropias'
+  final now = DateTime.now();
+  final mesAnterior = DateTime(now.year, now.month - 1);
+  final mesesDesdeIngreso = mesAnterior.difference(DateTime(user.fechaIngreso.year, user.fechaIngreso.month)).inDays ~/ 30;
+
+  // Calcular porcentaje correcto para el nivel 1
+  double porcentaje;
+  if (mesesDesdeIngreso < 1) {
+    porcentaje = 0.15;
+  } else if (mesesDesdeIngreso == 1) {
+    porcentaje = 0.18;
+  } else {
+    porcentaje = 0.20;
+  }
+
+  // Obtener ventas propias totales desde Firestore
   final doc = await FirebaseFirestore.instance.collection('winners').doc(currentUserId).get();
   double ventasPropias = (doc.data()?['ventasPropias'] ?? 0).toDouble();
 
-  final double baseTotal = ventasPropias * 0.20; // 20% de comisión por ventas propias
-  double referidosComision = 0;
+  final double baseTotal = ventasPropias * porcentaje;
 
+  // Comisiones por referidos
+  double referidosComision = 0;
   if (_rangoFechas != null) {
     final DateTime rangeStart = _rangoFechas!.start;
     final DateTime rangeEnd = _rangoFechas!.end;
@@ -236,7 +261,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)}", style: TextStyle(fontSize: 16)),
+          Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)} ($porcentaje%)", style: TextStyle(fontSize: 16)),
           SizedBox(height: 4),
           Text("Por tus referidos: €${referidosComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 16)),
           SizedBox(height: 8),
@@ -254,6 +279,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     ),
   );
 }
+
 
 
   // Permite editar las ventas mensuales del mes actual (clave "yyyy-MM")
