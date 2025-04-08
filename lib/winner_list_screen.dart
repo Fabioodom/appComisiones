@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // Para usar kIsWeb y compute
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,9 +8,22 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'referidos_tree_screen.dart';
 import 'login_register_screen.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:html' as html; 
+import 'html_helper.dart'
+  if (dart.library.html) 'html_helper_web.dart';
 
+
+
+// Importación exclusiva para la web
+// Solo se usará si kIsWeb es true.
+
+///
 /// Función auxiliar para abreviar números.
 /// Por ejemplo: 10000 -> "10K", 1500000 -> "1.5M"
+///
 String formatAbbreviated(double number) {
   if (number >= 1000000) {
     double n = number / 1000000;
@@ -20,6 +36,41 @@ String formatAbbreviated(double number) {
   }
 }
 
+///
+/// Función que genera los bytes del Excel a partir de la lista de usuarios.
+/// Esta función se ejecutará en un isolate (para no bloquear la interfaz).
+///
+Uint8List generarExcelBytes(List<Map<String, dynamic>> usuarios) {
+  final excel = Excel.createExcel();
+
+  // Usamos la hoja predeterminada "Sheet1"
+  final Sheet sheet = excel.sheets['Sheet1']!;
+
+  // Agregar encabezados
+  sheet.appendRow([
+    'ID',
+    'Nombre',
+    'Ventas Propias',
+    'Fecha de Ingreso',
+    'Referido Por',
+  ]);
+
+  // Agregar una fila por cada usuario
+  for (var usuario in usuarios) {
+    // Puedes descomentar el siguiente print para depurar los datos que llegan:
+    // print(usuario);
+    sheet.appendRow([
+      usuario['id']?.toString() ?? '',
+      usuario['name']?.toString() ?? '',
+      usuario['ventasPropias']?.toString() ?? '',
+      usuario['fechaIngreso']?.toString() ?? '',
+      usuario['referidoPor']?.toString() ?? '',
+    ]);
+  }
+
+  final bytes = excel.encode();
+  return Uint8List.fromList(bytes!);
+}
 class WinnerListScreen extends StatefulWidget {
   @override
   State<WinnerListScreen> createState() => _WinnerListScreenState();
@@ -28,9 +79,7 @@ class WinnerListScreen extends StatefulWidget {
 class _WinnerListScreenState extends State<WinnerListScreen> {
   late String currentUserId;
   String? currentUserName;
-  Map<String, dynamic> ventasMensuales = {};  // Llaves en formato "yyyy-MM"
-
-
+  Map<String, dynamic> ventasMensuales = {}; // Llaves en formato "yyyy-MM"
   Map<String, double> comisionesMensuales = {}; // Llaves en formato "yyyy-MM"
 
   // Rango de fechas seleccionado
@@ -97,6 +146,113 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     });
   }
 
+  ///
+  /// Función para exportar usuarios a Excel, adaptada para Web y móvil.
+  ///
+  Future<void> _exportarUsuariosAExcel() async {
+  // CASO WEB:
+  if (kIsWeb) {
+    try {
+      // Obtener datos de Firestore
+      final query = await FirebaseFirestore.instance.collection('winners').get();
+      final usuarios = query.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'],
+          'ventasPropias': data['ventasPropias'],
+          'fechaIngreso': data['fechaIngreso'],
+          'referidoPor': data['referidoPor'],
+        };
+      }).toList();
+
+      print("Documentos obtenidos: ${usuarios.length}");
+
+      // Generar el Excel en segundo plano
+      final bytes = await compute(generarExcelBytes, usuarios);
+
+      // Usar dart:html para crear un blob y forzar la descarga
+      final blob = html.Blob(
+        [bytes],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.document.createElement('a') as html.AnchorElement
+        ..href = url
+        ..download = 'usuarios_exportados.xlsx'
+        ..style.display = 'none';
+      html.document.body?.append(anchor);
+      anchor.click();
+      anchor.remove(); // Quita el elemento del DOM
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Archivo descargado: usuarios_exportados.xlsx")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al exportar: $e")),
+      );
+    }
+    return;
+  }
+
+  // PARA MÓVIL:
+  if (Platform.isAndroid) {
+    // Solicitar el permiso "manageExternalStorage" (Android 11+)
+    final status = await Permission.manageExternalStorage.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Permiso de almacenamiento denegado")),
+      );
+      return;
+    }
+  }
+
+  // Mostrar un loading mientras se exporta
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Center(child: CircularProgressIndicator()),
+  );
+
+  try {
+    final query = await FirebaseFirestore.instance.collection('winners').get();
+    final usuarios = query.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'name': data['name'],
+        'ventasPropias': data['ventasPropias'],
+        'fechaIngreso': data['fechaIngreso'],
+        'referidoPor': data['referidoPor'],
+      };
+    }).toList();
+
+    // Generar el Excel en segundo plano
+    final bytes = await compute(generarExcelBytes, usuarios);
+
+    // Guardar en la carpeta de Descargas
+    final dir = Directory('/storage/emulated/0/Download');
+    final path = '${dir.path}/usuarios_exportados.xlsx';
+    final file = File(path);
+    await file.writeAsBytes(bytes);
+
+    if (mounted) Navigator.pop(context); // Quitar el indicador de carga
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Guardado en Descargas: usuarios_exportados.xlsx")),
+    );
+  } catch (e) {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error al exportar: $e")),
+    );
+  }
+}
+
+
+
   // Carga el usuario actual y los datos mensuales desde Firestore.
   void _loadCurrentUser() async {
     final doc = await FirebaseFirestore.instance
@@ -143,7 +299,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   }
 
   Future<Winner> _fetchWinner(String uid) async {
-    final doc = await FirebaseFirestore.instance.collection('winners').doc(uid).get();
+    final doc =
+        await FirebaseFirestore.instance.collection('winners').doc(uid).get();
     final data = doc.data()!;
     return Winner(
       id: uid,
@@ -172,34 +329,34 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   }
 
   double _calcularComisiones(Winner w, int nivel) {
-  double total = 0;
+    double total = 0;
+    final now = DateTime.now();
+    final mesAnterior = DateTime(now.year, now.month - 1);
+    final mesesDesdeIngreso = mesAnterior
+            .difference(DateTime(w.fechaIngreso.year, w.fechaIngreso.month))
+            .inDays ~/
+        30;
 
-  final now = DateTime.now();
-  final currentMonthStart = DateTime(now.year, now.month); // Inicio del mes actual
-  final mesAnterior = DateTime(now.year, now.month - 1); // Comisiones a pagar este mes vienen del mes anterior
-  final mesesDesdeIngreso = mesAnterior.difference(DateTime(w.fechaIngreso.year, w.fechaIngreso.month)).inDays ~/ 30;
-
-  if (nivel == 1) {
-    // Nivel 1: comisión sobre ventas propias
-    double porcentaje;
-    if (mesesDesdeIngreso < 1) {
-      porcentaje = 0.15; // Primer mes completo
-    } else if (mesesDesdeIngreso == 1) {
-      porcentaje = 0.18; // Segundo mes completo
-    } else {
-      porcentaje = 0.20; // Tercer mes en adelante
+    if (nivel == 1) {
+      double porcentaje;
+      if (mesesDesdeIngreso < 1) {
+        porcentaje = 0.15;
+      } else if (mesesDesdeIngreso == 1) {
+        porcentaje = 0.18;
+      } else {
+        porcentaje = 0.20;
+      }
+      total += w.ventas * porcentaje;
+    } else if (nivel == 2) {
+      total += w.ventas * 0.10;
+    } else if (nivel == 3) {
+      total += w.ventas * 0.07;
+    } else if (nivel == 4) {
+      total += w.ventas * 0.03;
     }
-    total += w.ventas * porcentaje;
-  } else if (nivel == 2) {
-    total += w.ventas * 0.10;
-  } else if (nivel == 3) {
-    total += w.ventas * 0.07;
-  } else if (nivel == 4) {
-    total += w.ventas * 0.03;
-  }
 
-  return total;
-}
+    return total;
+  }
 
   String _obtenerReconocimiento(double total, int referidos) {
     if (total > 50000 && referidos > 50) return 'Zafiro Blanco';
@@ -211,131 +368,191 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
 
   // Al pulsar "Ver comisiones", se muestran las comisiones ganadas por referidos y el reconocimiento.
   void _verComisiones() async {
-  final user = await _fetchWinner(currentUserId);
+    final user = await _fetchWinner(currentUserId);
+    final now = DateTime.now();
+    final mesAnterior = DateTime(now.year, now.month - 1);
+    final mesesDesdeIngreso = mesAnterior
+            .difference(DateTime(user.fechaIngreso.year, user.fechaIngreso.month))
+            .inDays ~/
+        30;
 
-  final now = DateTime.now();
-  final mesAnterior = DateTime(now.year, now.month - 1);
-  final mesesDesdeIngreso = mesAnterior.difference(DateTime(user.fechaIngreso.year, user.fechaIngreso.month)).inDays ~/ 30;
+    double porcentaje;
+    if (mesesDesdeIngreso < 1) {
+      porcentaje = 0.15;
+    } else if (mesesDesdeIngreso == 1) {
+      porcentaje = 0.18;
+    } else {
+      porcentaje = 0.20;
+    }
 
-  // Calcular porcentaje correcto para el nivel 1
-  double porcentaje;
-  if (mesesDesdeIngreso < 1) {
-    porcentaje = 0.15;
-  } else if (mesesDesdeIngreso == 1) {
-    porcentaje = 0.18;
-  } else {
-    porcentaje = 0.20;
-  }
+    final doc = await FirebaseFirestore.instance
+        .collection('winners')
+        .doc(currentUserId)
+        .get();
+    double ventasPropias =
+        (doc.data()?['ventasPropias'] ?? 0).toDouble();
 
-  // Obtener ventas propias totales desde Firestore
-  final doc = await FirebaseFirestore.instance.collection('winners').doc(currentUserId).get();
-  double ventasPropias = (doc.data()?['ventasPropias'] ?? 0).toDouble();
+    final double baseTotal = ventasPropias * porcentaje;
 
-  final double baseTotal = ventasPropias * porcentaje;
+    double referidosComision = 0;
+    if (_rangoFechas != null) {
+      final DateTime rangeStart = _rangoFechas!.start;
+      final DateTime rangeEnd = _rangoFechas!.end;
+      comisionesMensuales.forEach((key, value) {
+        DateTime monthDate = DateTime.parse("$key-01");
+        if (!monthDate.isBefore(rangeStart) &&
+            !monthDate.isAfter(rangeEnd)) {
+          referidosComision += value;
+        }
+      });
+    } else {
+      referidosComision =
+          comisionesMensuales.values.fold(0, (prev, element) => prev + element);
+    }
 
-  // Comisiones por referidos
-  double referidosComision = 0;
-  if (_rangoFechas != null) {
-    final DateTime rangeStart = _rangoFechas!.start;
-    final DateTime rangeEnd = _rangoFechas!.end;
-    comisionesMensuales.forEach((key, value) {
-      DateTime monthDate = DateTime.parse("$key-01");
-      if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
-        referidosComision += value;
-      }
-    });
-  } else {
-    referidosComision = comisionesMensuales.values.fold(0, (prev, element) => prev + element);
-  }
+    final totalComision = baseTotal + referidosComision;
+    final referidos = await _fetchReferidos(currentUserId);
+    final reco = _obtenerReconocimiento(totalComision, referidos.length);
 
-  final totalComision = baseTotal + referidosComision;
-  final referidos = await _fetchReferidos(currentUserId);
-  final reco = _obtenerReconocimiento(totalComision, referidos.length);
-
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text("Comisiones ganadas", style: TextStyle(fontWeight: FontWeight.bold)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)} ($porcentaje%)", style: TextStyle(fontSize: 16)),
-          SizedBox(height: 4),
-          Text("Por tus referidos: €${referidosComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 16)),
-          SizedBox(height: 8),
-          Text("Total: €${totalComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Text("Reconocimiento WoW: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Comisiones ganadas",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)} ($porcentaje%)",
+                style: TextStyle(fontSize: 16)),
+            SizedBox(height: 4),
+            Text("Por tus referidos: €${referidosComision.toStringAsFixed(2)}",
+                style: TextStyle(fontSize: 16)),
+            SizedBox(height: 8),
+            Text("Total: €${totalComision.toStringAsFixed(2)}",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text("Reconocimiento WoW: $reco",
+                style: TextStyle(fontSize: 16, color: Colors.teal)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cerrar", style: TextStyle(color: Colors.teal)),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text("Cerrar", style: TextStyle(color: Colors.teal)),
-        ),
-      ],
-    ),
-  );
-}
-
-
+    );
+  }
 
   // Permite editar las ventas mensuales del mes actual (clave "yyyy-MM")
   void _editarVentaMes() async {
-  final now = DateTime.now();
-  final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-  final currentValue = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
-  final controller = TextEditingController(text: currentValue.toString());
+    final now = DateTime.now();
+    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+    final currentValue =
+        double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+    final controller = TextEditingController(text: currentValue.toString());
 
-  final result = await showDialog<String>(
-    context: context,
-    builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text("Editar ventas para $key"),
-      content: TextField(
-        controller: controller,
-        keyboardType: TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          labelText: "Nuevo total de ventas",
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Editar ventas para $key"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: "Nuevo total de ventas",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(shape: StadiumBorder()),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text("Guardar"),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(shape: StadiumBorder()),
-          onPressed: () => Navigator.pop(context, controller.text.trim()),
-          child: Text("Guardar"),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      final newSales = double.tryParse(result);
+      if (newSales == null) return;
+
+      final docRef =
+          FirebaseFirestore.instance.collection('winners').doc(currentUserId);
+
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final snapshot = await tx.get(docRef);
+        final data = snapshot.data() ?? {};
+
+        final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
+        final oldSales = (ventas[key] ?? 0).toDouble();
+        final diferencia = newSales - oldSales;
+
+        ventas[key] = newSales;
+
+        final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
+        final ventasPropiasNueva = ventasPropiasActual + diferencia;
+
+        tx.update(docRef, {
+          'ventasPorMes': ventas,
+          'ventasPropias': ventasPropiasNueva,
+        });
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Ventas para $key actualizadas a \€${newSales.toStringAsFixed(2)}")),
+      );
+      _loadCurrentUser();
+    }
+  }
+
+  // Agregar ventas para el mes actual (acumulando el valor)
+  void _agregarVentaMes() async {
+    final controller = TextEditingController();
+    final now = DateTime.now();
+    final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+    final cantidad = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Registrar ventas en $key"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: "Monto a registrar"),
         ),
-      ],
-    ),
-  );
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text("Guardar"),
+          ),
+        ],
+      ),
+    );
 
-  if (result != null && result.isNotEmpty) {
-    final newSales = double.tryParse(result);
-    if (newSales == null) return;
+    if (cantidad == null || cantidad.isEmpty) return;
+    final monto = double.tryParse(cantidad);
+    if (monto == null) return;
 
-    final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
+    final docRef =
+        FirebaseFirestore.instance.collection('winners').doc(currentUserId);
 
     await FirebaseFirestore.instance.runTransaction((tx) async {
       final snapshot = await tx.get(docRef);
       final data = snapshot.data() ?? {};
 
-      // Ventas anteriores para el mes
       final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
-      final oldSales = (ventas[key] ?? 0).toDouble();
+      final actual = (ventas[key] ?? 0).toDouble();
+      ventas[key] = actual + monto;
 
-      // Diferencia entre nuevo y anterior
-      final diferencia = newSales - oldSales;
-
-      // Actualizar ventasPorMes
-      ventas[key] = newSales;
-
-      // Actualizar ventasPropias
       final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
-      final ventasPropiasNueva = ventasPropiasActual + diferencia;
+      final ventasPropiasNueva = ventasPropiasActual + monto;
 
       tx.update(docRef, {
         'ventasPorMes': ventas,
@@ -343,72 +560,13 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       });
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Ventas para $key actualizadas a \€${newSales.toStringAsFixed(2)}")),
-    );
-    _loadCurrentUser();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Registrado \€${monto.toStringAsFixed(2)} para $key")),
+      );
+      _loadCurrentUser();
+    }
   }
-}
-
-
-  // Agregar ventas para el mes actual (acumulando el valor)
-  void _agregarVentaMes() async {
-  final controller = TextEditingController();
-  final now = DateTime.now();
-  final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-  final cantidad = await showDialog<String>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: Text("Registrar ventas en $key"),
-      content: TextField(
-        controller: controller,
-        keyboardType: TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(labelText: "Monto a registrar"),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, controller.text.trim()),
-          child: Text("Guardar"),
-        ),
-      ],
-    ),
-  );
-
-  if (cantidad == null || cantidad.isEmpty) return;
-  final monto = double.tryParse(cantidad);
-  if (monto == null) return;
-
-  final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
-
-  await FirebaseFirestore.instance.runTransaction((tx) async {
-    final snapshot = await tx.get(docRef);
-    final data = snapshot.data() ?? {};
-
-    // Actualizar ventasPorMes
-    final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
-    final actual = (ventas[key] ?? 0).toDouble();
-    ventas[key] = actual + monto;
-
-    // Actualizar ventasPropias
-    final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
-    final ventasPropiasNueva = ventasPropiasActual + monto;
-
-    // Guardar ambas actualizaciones
-    tx.update(docRef, {
-      'ventasPorMes': ventas,
-      'ventasPropias': ventasPropiasNueva,
-    });
-  });
-
-  if (mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Registrado \€${monto.toStringAsFixed(2)} para $key")),
-    );
-    _loadCurrentUser();
-  }
-}
-
 
   // Selección del rango de fechas
   void _seleccionarRangoFechas() async {
@@ -433,7 +591,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   // Construcción del gráfico en resolución mensual (con números abreviados)
   Widget _buildSalesChart() {
     final now = DateTime.now();
-    final DateTime startDate = _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
+    final DateTime startDate =
+        _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
     final DateTime endDate = _rangoFechas?.end ?? now;
 
     List<DateTime> timePoints = [];
@@ -477,7 +636,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       });
     } else {
       final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-      aggregatedSales = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+      aggregatedSales =
+          double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
       aggregatedCommission = comisionesMensuales[key] ?? 0;
     }
 
@@ -574,7 +734,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                       showTitles: true,
                       reservedSize: 64,
                       interval: intervalY,
-                      // Aquí se usa la función para mostrar el número abreviado
                       getTitlesWidget: (value, meta) {
                         String formatted = formatAbbreviated(value);
                         return Padding(
@@ -886,12 +1045,13 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
             onPressed: _seleccionarRangoFechas,
           ),
           IconButton(
-  icon: const Icon(Icons.logout, color: Colors.white), // 👈 Asegúrate de poner el color aquí
-  onPressed: () async {
-    await FirebaseAuth.instance.signOut();
-    if (context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-        }
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/', (route) => false);
+              }
             },
           ),
         ],
@@ -910,6 +1070,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                 _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
                 _dashboardCard("Editar ventas mensuales", Icons.edit, Colors.orange, _editarVentaMes),
                 _dashboardCard("Añadir venta", Icons.add_chart, Colors.purple, _agregarVentaMes),
+                _dashboardCard("Exportar usuarios a Excel", Icons.file_download, Colors.teal, _exportarUsuariosAExcel),
               ],
             ),
           ],

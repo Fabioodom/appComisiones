@@ -218,107 +218,108 @@
 144                    android:scheme="recaptcha" />
 145            </intent-filter>
 146        </activity>
-147        <activity
-147-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:20:9-22:45
-148            android:name="com.google.android.gms.common.api.GoogleApiActivity"
-148-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:20:19-85
-149            android:exported="false"
-149-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:22:19-43
-150            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-150-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:21:19-78
-151
-152        <provider
-152-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:23:9-28:39
-153            android:name="com.google.firebase.provider.FirebaseInitProvider"
-153-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:24:13-77
-154            android:authorities="com.example.app_comisiones.firebaseinitprovider"
-154-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:25:13-72
-155            android:directBootAware="true"
-155-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:26:13-43
-156            android:exported="false"
-156-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:27:13-37
-157            android:initOrder="100" />
-157-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:28:13-36
-158
-159        <uses-library
-159-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:23:9-25:40
-160            android:name="androidx.window.extensions"
-160-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:24:13-54
-161            android:required="false" />
-161-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:25:13-37
-162        <uses-library
-162-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:26:9-28:40
-163            android:name="androidx.window.sidecar"
-163-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:27:13-51
-164            android:required="false" />
-164-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:28:13-37
-165
-166        <meta-data
-166-->[com.google.android.gms:play-services-basement:18.3.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\d57a1f6c01347d085f9144e73c250e20\transformed\jetified-play-services-basement-18.3.0\AndroidManifest.xml:21:9-23:69
-167            android:name="com.google.android.gms.version"
-167-->[com.google.android.gms:play-services-basement:18.3.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\d57a1f6c01347d085f9144e73c250e20\transformed\jetified-play-services-basement-18.3.0\AndroidManifest.xml:22:13-58
-168            android:value="@integer/google_play_services_version" />
-168-->[com.google.android.gms:play-services-basement:18.3.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\d57a1f6c01347d085f9144e73c250e20\transformed\jetified-play-services-basement-18.3.0\AndroidManifest.xml:23:13-66
-169
-170        <provider
-170-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:24:9-32:20
-171            android:name="androidx.startup.InitializationProvider"
-171-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:25:13-67
-172            android:authorities="com.example.app_comisiones.androidx-startup"
-172-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:26:13-68
-173            android:exported="false" >
-173-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:27:13-37
-174            <meta-data
-174-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:29:13-31:52
-175                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-175-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:30:17-78
-176                android:value="androidx.startup" />
-176-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:31:17-49
-177            <meta-data
-177-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
-178                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-178-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
-179                android:value="androidx.startup" />
-179-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
-180        </provider>
-181
-182        <receiver
-182-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
-183            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-183-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
-184            android:directBootAware="false"
-184-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
-185            android:enabled="true"
-185-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
-186            android:exported="true"
-186-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
-187            android:permission="android.permission.DUMP" >
-187-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
-188            <intent-filter>
-188-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
-189                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-189-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
-189-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
-190            </intent-filter>
-191            <intent-filter>
-191-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
-192                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-192-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
-192-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
-193            </intent-filter>
-194            <intent-filter>
-194-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
-195                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-195-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
-195-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
-196            </intent-filter>
-197            <intent-filter>
-197-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
-198                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-198-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
-198-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
-199            </intent-filter>
-200        </receiver>
-201    </application>
-202
-203</manifest>
+147
+148        <provider
+148-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:23:9-28:39
+149            android:name="com.google.firebase.provider.FirebaseInitProvider"
+149-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:24:13-77
+150            android:authorities="com.example.app_comisiones.firebaseinitprovider"
+150-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:25:13-72
+151            android:directBootAware="true"
+151-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:26:13-43
+152            android:exported="false"
+152-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:27:13-37
+153            android:initOrder="100" />
+153-->[com.google.firebase:firebase-common:20.4.3] C:\Users\fabio\.gradle\caches\8.10.2\transforms\4c67415d64627e23975be357e8f180d3\transformed\jetified-firebase-common-20.4.3\AndroidManifest.xml:28:13-36
+154
+155        <activity
+155-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:20:9-22:45
+156            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+156-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:20:19-85
+157            android:exported="false"
+157-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:22:19-43
+158            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+158-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\ee6aa5fd7f2304b1bbe5c05f658d5472\transformed\jetified-play-services-base-18.0.1\AndroidManifest.xml:21:19-78
+159
+160        <uses-library
+160-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:23:9-25:40
+161            android:name="androidx.window.extensions"
+161-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:24:13-54
+162            android:required="false" />
+162-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:25:13-37
+163        <uses-library
+163-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:26:9-28:40
+164            android:name="androidx.window.sidecar"
+164-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:27:13-51
+165            android:required="false" />
+165-->[androidx.window:window:1.2.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\73db24a2829d8fb9cf5663cfbb96cfeb\transformed\jetified-window-1.2.0\AndroidManifest.xml:28:13-37
+166
+167        <meta-data
+167-->[com.google.android.gms:play-services-basement:18.3.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\d57a1f6c01347d085f9144e73c250e20\transformed\jetified-play-services-basement-18.3.0\AndroidManifest.xml:21:9-23:69
+168            android:name="com.google.android.gms.version"
+168-->[com.google.android.gms:play-services-basement:18.3.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\d57a1f6c01347d085f9144e73c250e20\transformed\jetified-play-services-basement-18.3.0\AndroidManifest.xml:22:13-58
+169            android:value="@integer/google_play_services_version" />
+169-->[com.google.android.gms:play-services-basement:18.3.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\d57a1f6c01347d085f9144e73c250e20\transformed\jetified-play-services-basement-18.3.0\AndroidManifest.xml:23:13-66
+170
+171        <provider
+171-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:24:9-32:20
+172            android:name="androidx.startup.InitializationProvider"
+172-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:25:13-67
+173            android:authorities="com.example.app_comisiones.androidx-startup"
+173-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:26:13-68
+174            android:exported="false" >
+174-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:27:13-37
+175            <meta-data
+175-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:29:13-31:52
+176                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+176-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:30:17-78
+177                android:value="androidx.startup" />
+177-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\fabio\.gradle\caches\8.10.2\transforms\0095a4dba85ef3c38f0a9652b34cd9be\transformed\jetified-lifecycle-process-2.7.0\AndroidManifest.xml:31:17-49
+178            <meta-data
+178-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
+179                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+179-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
+180                android:value="androidx.startup" />
+180-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
+181        </provider>
+182
+183        <receiver
+183-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
+184            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+184-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
+185            android:directBootAware="false"
+185-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
+186            android:enabled="true"
+186-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
+187            android:exported="true"
+187-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
+188            android:permission="android.permission.DUMP" >
+188-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
+189            <intent-filter>
+189-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
+190                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+190-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
+190-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
+191            </intent-filter>
+192            <intent-filter>
+192-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
+193                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+193-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
+193-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
+194            </intent-filter>
+195            <intent-filter>
+195-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
+196                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+196-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
+196-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
+197            </intent-filter>
+198            <intent-filter>
+198-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
+199                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+199-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
+199-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\fabio\.gradle\caches\8.10.2\transforms\71c2a5c462ada5f663b8ca591b1907a5\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+200            </intent-filter>
+201        </receiver>
+202    </application>
+203
+204</manifest>
