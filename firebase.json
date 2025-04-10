@@ -1,1 +1,66 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"appcomisiones-2eff7","appId":"1:559817737819:android:a3c6f865ad2daaca25a17e","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"appcomisiones-2eff7","configurations":{"android":"1:559817737819:android:a3c6f865ad2daaca25a17e","ios":"1:559817737819:ios:4b327c1b6758e39025a17e","macos":"1:559817737819:ios:4b327c1b6758e39025a17e","web":"1:559817737819:web:f7fdf4181b2bde1425a17e","windows":"1:559817737819:web:9e04c95d0292436c25a17e"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "appcomisiones-2eff7",
+          "appId": "1:559817737819:android:a3c6f865ad2daaca25a17e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "appcomisiones-2eff7",
+          "configurations": {
+            "android": "1:559817737819:android:a3c6f865ad2daaca25a17e",
+            "ios": "1:559817737819:ios:4b327c1b6758e39025a17e",
+            "macos": "1:559817737819:ios:4b327c1b6758e39025a17e",
+            "web": "1:559817737819:web:f7fdf4181b2bde1425a17e",
+            "windows": "1:559817737819:web:9e04c95d0292436c25a17e"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    },
+    {
+      "source": "appcomisiones",
+      "codebase": "appcomisiones",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "extensions": {}
+}

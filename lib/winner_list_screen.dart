@@ -11,19 +11,11 @@ import 'login_register_screen.dart';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:html' as html; 
+import 'dart:html' as html;
 import 'html_helper.dart'
   if (dart.library.html) 'html_helper_web.dart';
 
-
-
-// Importación exclusiva para la web
-// Solo se usará si kIsWeb es true.
-
-///
 /// Función auxiliar para abreviar números.
-/// Por ejemplo: 10000 -> "10K", 1500000 -> "1.5M"
-///
 String formatAbbreviated(double number) {
   if (number >= 1000000) {
     double n = number / 1000000;
@@ -36,14 +28,10 @@ String formatAbbreviated(double number) {
   }
 }
 
-///
 /// Función que genera los bytes del Excel a partir de la lista de usuarios.
-/// Esta función se ejecutará en un isolate (para no bloquear la interfaz).
-///
+/// Se ejecuta en un isolate.
 Uint8List generarExcelBytes(List<Map<String, dynamic>> usuarios) {
   final excel = Excel.createExcel();
-
-  // Usamos la hoja predeterminada "Sheet1"
   final Sheet sheet = excel.sheets['Sheet1']!;
 
   // Agregar encabezados
@@ -55,10 +43,8 @@ Uint8List generarExcelBytes(List<Map<String, dynamic>> usuarios) {
     'Referido Por',
   ]);
 
-  // Agregar una fila por cada usuario
+  // Agregar una fila por cada usuario, forzando conversión a String
   for (var usuario in usuarios) {
-    // Puedes descomentar el siguiente print para depurar los datos que llegan:
-    // print(usuario);
     sheet.appendRow([
       usuario['id']?.toString() ?? '',
       usuario['name']?.toString() ?? '',
@@ -71,6 +57,7 @@ Uint8List generarExcelBytes(List<Map<String, dynamic>> usuarios) {
   final bytes = excel.encode();
   return Uint8List.fromList(bytes!);
 }
+
 class WinnerListScreen extends StatefulWidget {
   @override
   State<WinnerListScreen> createState() => _WinnerListScreenState();
@@ -84,7 +71,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
 
   // Rango de fechas seleccionado
   DateTimeRange? _rangoFechas;
-  // GlobalKey para el icono del calendario (para mostrar hint)
   final GlobalKey _calendarIconKey = GlobalKey();
   OverlayEntry? _overlayEntry;
 
@@ -107,7 +93,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
         _calendarIconKey.currentContext?.findRenderObject() as RenderBox;
     Offset position = renderBox.localToGlobal(Offset.zero);
     Size size = renderBox.size;
-
     double leftPos = position.dx - 100;
     if (leftPos < 0) leftPos = 0;
 
@@ -146,15 +131,156 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     });
   }
 
-  ///
+  /// Tarjeta dinámica de reconocimiento.
+  /// Esta widget usa FutureBuilder para obtener los referidos y el ganador actual.
+  Widget _buildReconocimientoCard() {
+  return FutureBuilder<Winner>(
+    future: _fetchWinner(currentUserId),
+    builder: (context, winnerSnapshot) {
+      if (winnerSnapshot.connectionState != ConnectionState.done ||
+          winnerSnapshot.data == null) {
+        return SizedBox.shrink();
+      }
+      final currentWinner = winnerSnapshot.data!;
+      final now = DateTime.now();
+      final mesAnterior = DateTime(now.year, now.month - 1);
+      final mesesDesdeIngreso = mesAnterior
+              .difference(DateTime(
+                  currentWinner.fechaIngreso.year, currentWinner.fechaIngreso.month))
+              .inDays ~/
+          30;
+      // Calcular porcentaje igual que en _verComisiones()
+      double porcentaje;
+      if (mesesDesdeIngreso < 1) {
+        porcentaje = 0.15;
+      } else if (mesesDesdeIngreso == 1) {
+        porcentaje = 0.18;
+      } else {
+        porcentaje = 0.20;
+      }
+
+      final ventasPropias = currentWinner.ventas;
+      final baseTotal = ventasPropias * porcentaje;
+
+      // Calcular comisión por referidos: si hay rango de fechas se filtra, sino se suma todo.
+      double referidosComision = 0.0;
+      if (_rangoFechas != null) {
+        final rangeStart = _rangoFechas!.start;
+        final rangeEnd = _rangoFechas!.end;
+        comisionesMensuales.forEach((key, value) {
+          DateTime monthDate = DateTime.parse("$key-01");
+          if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
+            referidosComision += value;
+          }
+        });
+      } else {
+        referidosComision = comisionesMensuales.values.fold(0, (prev, element) => prev + element);
+      }
+
+      final totalComision = baseTotal + referidosComision;
+
+      // Obtener los referidos para usar en el cálculo del reconocimiento
+      return FutureBuilder<List<Winner>>(
+        future: _fetchReferidos(currentUserId),
+        builder: (context, referidosSnapshot) {
+          if (referidosSnapshot.connectionState != ConnectionState.done) {
+            return SizedBox.shrink();
+          }
+          final referidos = referidosSnapshot.data ?? [];
+          final reconocimiento = _obtenerReconocimiento(totalComision, referidos.length);
+
+          // Elegir un icono según el reconocimiento
+          IconData icon;
+          if (reconocimiento == 'Zafiro Blanco')
+            icon = Icons.diamond;
+          else if (reconocimiento == 'Zafiro Morado')
+            icon = Icons.stars;
+          else if (reconocimiento == 'Zafiro Amarillo')
+            icon = Icons.star_half;
+          else if (reconocimiento == 'Zafiro Verde')
+            icon = Icons.emoji_nature;
+          else
+            icon = Icons.person;
+
+          return Card(
+            color: Colors.white,
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ListTile(
+              leading: Icon(icon, size: 40, color: const Color.fromARGB(255, 2, 151, 14)),
+              title: Text("Reconocimiento WoW"),
+              subtitle: Text(
+                reconocimiento,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
   /// Función para exportar usuarios a Excel, adaptada para Web y móvil.
-  ///
   Future<void> _exportarUsuariosAExcel() async {
-  // CASO WEB:
-  if (kIsWeb) {
+    if (kIsWeb) {
+      try {
+        final query =
+            await FirebaseFirestore.instance.collection('winners').get();
+        final usuarios = query.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'name': data['name'],
+            'ventasPropias': data['ventasPropias'],
+            'fechaIngreso': data['fechaIngreso'],
+            'referidoPor': data['referidoPor'],
+          };
+        }).toList();
+        print("Documentos obtenidos: ${usuarios.length}");
+        final bytes = await compute(generarExcelBytes, usuarios);
+        final blob = html.Blob(
+          [bytes],
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.document.createElement('a') as html.AnchorElement
+          ..href = url
+          ..download = 'usuarios_exportados.xlsx'
+          ..style.display = 'none';
+        html.document.body?.append(anchor);
+        anchor.click();
+        anchor.remove();
+        html.Url.revokeObjectUrl(url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Archivo descargado: usuarios_exportados.xlsx")),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al exportar: $e")),
+        );
+      }
+      return;
+    }
+    if (Platform.isAndroid) {
+      final status = await Permission.manageExternalStorage.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Permiso de almacenamiento denegado")),
+        );
+        return;
+      }
+    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(child: CircularProgressIndicator()),
+    );
     try {
-      // Obtener datos de Firestore
-      final query = await FirebaseFirestore.instance.collection('winners').get();
+      final query =
+          await FirebaseFirestore.instance.collection('winners').get();
       final usuarios = query.docs.map((doc) {
         final data = doc.data();
         return {
@@ -165,93 +291,22 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
           'referidoPor': data['referidoPor'],
         };
       }).toList();
-
-      print("Documentos obtenidos: ${usuarios.length}");
-
-      // Generar el Excel en segundo plano
       final bytes = await compute(generarExcelBytes, usuarios);
-
-      // Usar dart:html para crear un blob y forzar la descarga
-      final blob = html.Blob(
-        [bytes],
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.document.createElement('a') as html.AnchorElement
-        ..href = url
-        ..download = 'usuarios_exportados.xlsx'
-        ..style.display = 'none';
-      html.document.body?.append(anchor);
-      anchor.click();
-      anchor.remove(); // Quita el elemento del DOM
-      html.Url.revokeObjectUrl(url);
-
+      final dir = Directory('/storage/emulated/0/Download');
+      final path = '${dir.path}/usuarios_exportados.xlsx';
+      final file = File(path);
+      await file.writeAsBytes(bytes);
+      if (mounted) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Archivo descargado: usuarios_exportados.xlsx")),
+        SnackBar(content: Text("Guardado en Descargas: usuarios_exportados.xlsx")),
       );
     } catch (e) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error al exportar: $e")),
       );
     }
-    return;
   }
-
-  // PARA MÓVIL:
-  if (Platform.isAndroid) {
-    // Solicitar el permiso "manageExternalStorage" (Android 11+)
-    final status = await Permission.manageExternalStorage.request();
-    if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Permiso de almacenamiento denegado")),
-      );
-      return;
-    }
-  }
-
-  // Mostrar un loading mientras se exporta
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => Center(child: CircularProgressIndicator()),
-  );
-
-  try {
-    final query = await FirebaseFirestore.instance.collection('winners').get();
-    final usuarios = query.docs.map((doc) {
-      final data = doc.data();
-      return {
-        'id': doc.id,
-        'name': data['name'],
-        'ventasPropias': data['ventasPropias'],
-        'fechaIngreso': data['fechaIngreso'],
-        'referidoPor': data['referidoPor'],
-      };
-    }).toList();
-
-    // Generar el Excel en segundo plano
-    final bytes = await compute(generarExcelBytes, usuarios);
-
-    // Guardar en la carpeta de Descargas
-    final dir = Directory('/storage/emulated/0/Download');
-    final path = '${dir.path}/usuarios_exportados.xlsx';
-    final file = File(path);
-    await file.writeAsBytes(bytes);
-
-    if (mounted) Navigator.pop(context); // Quitar el indicador de carga
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Guardado en Descargas: usuarios_exportados.xlsx")),
-    );
-  } catch (e) {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error al exportar: $e")),
-    );
-  }
-}
-
-
 
   // Carga el usuario actual y los datos mensuales desde Firestore.
   void _loadCurrentUser() async {
@@ -271,36 +326,29 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   // Calcula las comisiones totales a partir de las ventas de los referidos.
   Future<Map<String, double>> _calcularComisionesMensuales(String userId) async {
     Map<String, double> totalComisiones = {};
-
     Future<void> calcular(String uid, int nivel) async {
       if (nivel > 4) return;
       final query = await FirebaseFirestore.instance
           .collection('winners')
           .where('referidoPor', isEqualTo: uid)
           .get();
-
       for (var doc in query.docs) {
         final data = doc.data();
         final subVentas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
-        // Define el porcentaje según el nivel
         double porcentaje = nivel == 2 ? 0.10 : nivel == 3 ? 0.07 : 0.03;
-
         subVentas.forEach((mes, valor) {
           final val = double.tryParse(valor.toString()) ?? 0;
           totalComisiones[mes] = (totalComisiones[mes] ?? 0) + (val * porcentaje);
         });
-
         await calcular(doc.id, nivel + 1);
       }
     }
-
     await calcular(userId, 2);
     return totalComisiones;
   }
 
   Future<Winner> _fetchWinner(String uid) async {
-    final doc =
-        await FirebaseFirestore.instance.collection('winners').doc(uid).get();
+    final doc = await FirebaseFirestore.instance.collection('winners').doc(uid).get();
     final data = doc.data()!;
     return Winner(
       id: uid,
@@ -336,7 +384,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
             .difference(DateTime(w.fechaIngreso.year, w.fechaIngreso.month))
             .inDays ~/
         30;
-
     if (nivel == 1) {
       double porcentaje;
       if (mesesDesdeIngreso < 1) {
@@ -354,7 +401,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     } else if (nivel == 4) {
       total += w.ventas * 0.03;
     }
-
     return total;
   }
 
@@ -366,7 +412,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     return 'Sin reconocimiento';
   }
 
-  // Al pulsar "Ver comisiones", se muestran las comisiones ganadas por referidos y el reconocimiento.
+  // Al pulsar "Ver comisiones", se muestran las comisiones ganadas y el reconocimiento.
   void _verComisiones() async {
     final user = await _fetchWinner(currentUserId);
     final now = DateTime.now();
@@ -375,7 +421,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
             .difference(DateTime(user.fechaIngreso.year, user.fechaIngreso.month))
             .inDays ~/
         30;
-
     double porcentaje;
     if (mesesDesdeIngreso < 1) {
       porcentaje = 0.15;
@@ -384,57 +429,44 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     } else {
       porcentaje = 0.20;
     }
-
     final doc = await FirebaseFirestore.instance
         .collection('winners')
         .doc(currentUserId)
         .get();
-    double ventasPropias =
-        (doc.data()?['ventasPropias'] ?? 0).toDouble();
-
+    double ventasPropias = (doc.data()?['ventasPropias'] ?? 0).toDouble();
     final double baseTotal = ventasPropias * porcentaje;
-
     double referidosComision = 0;
     if (_rangoFechas != null) {
       final DateTime rangeStart = _rangoFechas!.start;
       final DateTime rangeEnd = _rangoFechas!.end;
       comisionesMensuales.forEach((key, value) {
         DateTime monthDate = DateTime.parse("$key-01");
-        if (!monthDate.isBefore(rangeStart) &&
-            !monthDate.isAfter(rangeEnd)) {
+        if (!monthDate.isBefore(rangeStart) && !monthDate.isAfter(rangeEnd)) {
           referidosComision += value;
         }
       });
     } else {
-      referidosComision =
-          comisionesMensuales.values.fold(0, (prev, element) => prev + element);
+      referidosComision = comisionesMensuales.values.fold(0, (prev, element) => prev + element);
     }
-
     final totalComision = baseTotal + referidosComision;
     final referidos = await _fetchReferidos(currentUserId);
     final reco = _obtenerReconocimiento(totalComision, referidos.length);
-
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Comisiones ganadas",
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text("Comisiones ganadas", style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)} ($porcentaje%)",
-                style: TextStyle(fontSize: 16)),
+            Text("Por tus ventas: €${baseTotal.toStringAsFixed(2)} ($porcentaje%)", style: TextStyle(fontSize: 16)),
             SizedBox(height: 4),
-            Text("Por tus referidos: €${referidosComision.toStringAsFixed(2)}",
-                style: TextStyle(fontSize: 16)),
+            Text("Por tus referidos: €${referidosComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 16)),
             SizedBox(height: 8),
-            Text("Total: €${totalComision.toStringAsFixed(2)}",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Total: €${totalComision.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(height: 8),
-            Text("Reconocimiento WoW: $reco",
-                style: TextStyle(fontSize: 16, color: Colors.teal)),
+            Text("Reconocimiento WoW: $reco", style: TextStyle(fontSize: 16, color: Colors.teal)),
           ],
         ),
         actions: [
@@ -451,10 +483,8 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   void _editarVentaMes() async {
     final now = DateTime.now();
     final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-    final currentValue =
-        double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+    final currentValue = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
     final controller = TextEditingController(text: currentValue.toString());
-
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
@@ -478,33 +508,24 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
         ],
       ),
     );
-
     if (result != null && result.isNotEmpty) {
       final newSales = double.tryParse(result);
       if (newSales == null) return;
-
-      final docRef =
-          FirebaseFirestore.instance.collection('winners').doc(currentUserId);
-
+      final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
       await FirebaseFirestore.instance.runTransaction((tx) async {
         final snapshot = await tx.get(docRef);
         final data = snapshot.data() ?? {};
-
         final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
         final oldSales = (ventas[key] ?? 0).toDouble();
         final diferencia = newSales - oldSales;
-
         ventas[key] = newSales;
-
         final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
         final ventasPropiasNueva = ventasPropiasActual + diferencia;
-
         tx.update(docRef, {
           'ventasPorMes': ventas,
           'ventasPropias': ventasPropiasNueva,
         });
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Ventas para $key actualizadas a \€${newSales.toStringAsFixed(2)}")),
       );
@@ -535,31 +556,23 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
         ],
       ),
     );
-
     if (cantidad == null || cantidad.isEmpty) return;
     final monto = double.tryParse(cantidad);
     if (monto == null) return;
-
-    final docRef =
-        FirebaseFirestore.instance.collection('winners').doc(currentUserId);
-
+    final docRef = FirebaseFirestore.instance.collection('winners').doc(currentUserId);
     await FirebaseFirestore.instance.runTransaction((tx) async {
       final snapshot = await tx.get(docRef);
       final data = snapshot.data() ?? {};
-
       final ventas = Map<String, dynamic>.from(data['ventasPorMes'] ?? {});
       final actual = (ventas[key] ?? 0).toDouble();
       ventas[key] = actual + monto;
-
       final ventasPropiasActual = (data['ventasPropias'] ?? 0).toDouble();
       final ventasPropiasNueva = ventasPropiasActual + monto;
-
       tx.update(docRef, {
         'ventasPorMes': ventas,
         'ventasPropias': ventasPropiasNueva,
       });
     });
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Registrado \€${monto.toStringAsFixed(2)} para $key")),
@@ -580,7 +593,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
             end: DateTime.now(),
           ),
     );
-
     if (rango != null) {
       setState(() {
         _rangoFechas = rango;
@@ -591,21 +603,17 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
   // Construcción del gráfico en resolución mensual (con números abreviados)
   Widget _buildSalesChart() {
     final now = DateTime.now();
-    final DateTime startDate =
-        _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
+    final DateTime startDate = _rangoFechas?.start ?? DateTime(now.year, now.month, 1);
     final DateTime endDate = _rangoFechas?.end ?? now;
-
     List<DateTime> timePoints = [];
     DateTime cursor = DateTime(startDate.year, startDate.month, 1);
     while (!cursor.isAfter(endDate)) {
       timePoints.add(cursor);
       cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
-
     if (timePoints.length == 1) {
       timePoints.add(DateTime(timePoints[0].year, timePoints[0].month + 1, 1));
     }
-
     final List<FlSpot> ventasSpots = [];
     final List<FlSpot> comisionSpots = [];
     for (int i = 0; i < timePoints.length; i++) {
@@ -616,7 +624,6 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       ventasSpots.add(FlSpot(i.toDouble(), v));
       comisionSpots.add(FlSpot(i.toDouble(), c));
     }
-
     double aggregatedSales = 0;
     double aggregatedCommission = 0;
     if (_rangoFechas != null) {
@@ -636,18 +643,14 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
       });
     } else {
       final key = "${now.year}-${now.month.toString().padLeft(2, '0')}";
-      aggregatedSales =
-          double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
+      aggregatedSales = double.tryParse(ventasMensuales[key]?.toString() ?? '0') ?? 0;
       aggregatedCommission = comisionesMensuales[key] ?? 0;
     }
-
     final double maxY = [
       ...ventasSpots.map((e) => e.y),
       ...comisionSpots.map((e) => e.y),
     ].fold(0, (prev, curr) => curr > prev ? curr : prev);
-
     final double intervalY = maxY == 0 ? 1 : (maxY / 4).ceilToDouble();
-
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 24),
@@ -771,9 +774,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                 lineTouchData: LineTouchData(
                   enabled: true,
                   touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
-                    if (!event.isInterestedForInteractions ||
-                        touchResponse == null ||
-                        touchResponse.lineBarSpots == null) return;
+                    if (!event.isInterestedForInteractions || touchResponse == null || touchResponse.lineBarSpots == null) return;
                     if (event is FlTapUpEvent) {
                       final index = touchResponse.lineBarSpots![0].x.toInt();
                       if (index >= 0 && index < timePoints.length) {
@@ -1062,6 +1063,9 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
           children: [
             _buildSalesChart(),
             _buildBanner(),
+            SizedBox(height: 16),
+            _buildReconocimientoCard(),  // Tarjeta dinámica de reconocimiento
+            SizedBox(height: 16),
             Wrap(
               spacing: 20,
               runSpacing: 20,
