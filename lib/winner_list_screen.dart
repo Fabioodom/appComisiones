@@ -224,89 +224,92 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
 }
 
   /// Función para exportar usuarios a Excel, adaptada para Web y móvil.
-  Future<void> _exportarUsuariosAExcel() async {
-    if (kIsWeb) {
-      try {
-        final query =
-            await FirebaseFirestore.instance.collection('winners').get();
-        final usuarios = query.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'ventasPropias': data['ventasPropias'],
-            'fechaIngreso': data['fechaIngreso'],
-            'referidoPor': data['referidoPor'],
-          };
-        }).toList();
-        print("Documentos obtenidos: ${usuarios.length}");
-        final bytes = await compute(generarExcelBytes, usuarios);
-        final blob = html.Blob(
-          [bytes],
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.document.createElement('a') as html.AnchorElement
-          ..href = url
-          ..download = 'usuarios_exportados.xlsx'
-          ..style.display = 'none';
-        html.document.body?.append(anchor);
-        anchor.click();
-        anchor.remove();
-        html.Url.revokeObjectUrl(url);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Archivo descargado: usuarios_exportados.xlsx")),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al exportar: $e")),
-        );
-      }
+Future<void> _exportarUsuariosAExcel() async {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("No hay usuario autenticado")),
+    );
+    return;
+  }
+
+  try {
+    final query = await FirebaseFirestore.instance
+        .collection('winners')
+        .where('email', isEqualTo: currentUser.email) // 🔍 Filtramos por email
+        .get();
+
+    final usuarios = query.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'name': data['name'],
+        'ventasPropias': data['ventasPropias'],
+        'fechaIngreso': data['fechaIngreso'],
+        'referidoPor': data['referidoPor'],
+      };
+    }).toList();
+
+    if (usuarios.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("No hay datos de ventas para exportar")),
+      );
       return;
     }
-    if (Platform.isAndroid) {
-      final status = await Permission.manageExternalStorage.request();
-      if (!status.isGranted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Permiso de almacenamiento denegado")),
-        );
-        return;
+
+    final bytes = await compute(generarExcelBytes, usuarios);
+
+    if (kIsWeb) {
+      final blob = html.Blob(
+        [bytes],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.document.createElement('a') as html.AnchorElement
+        ..href = url
+        ..download = 'mis_ventas.xlsx'
+        ..style.display = 'none';
+      html.document.body?.append(anchor);
+      anchor.click();
+      anchor.remove();
+      html.Url.revokeObjectUrl(url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Archivo descargado: mis_ventas.xlsx")),
+      );
+    } else {
+      if (Platform.isAndroid) {
+        final status = await Permission.manageExternalStorage.request();
+        if (!status.isGranted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Permiso de almacenamiento denegado")),
+          );
+          return;
+        }
       }
-    }
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(child: CircularProgressIndicator()),
-    );
-    try {
-      final query =
-          await FirebaseFirestore.instance.collection('winners').get();
-      final usuarios = query.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'name': data['name'],
-          'ventasPropias': data['ventasPropias'],
-          'fechaIngreso': data['fechaIngreso'],
-          'referidoPor': data['referidoPor'],
-        };
-      }).toList();
-      final bytes = await compute(generarExcelBytes, usuarios);
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Center(child: CircularProgressIndicator()),
+      );
+
       final dir = Directory('/storage/emulated/0/Download');
-      final path = '${dir.path}/usuarios_exportados.xlsx';
+      final path = '${dir.path}/mis_ventas.xlsx';
       final file = File(path);
       await file.writeAsBytes(bytes);
       if (mounted) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Guardado en Descargas: usuarios_exportados.xlsx")),
-      );
-    } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al exportar: $e")),
+        SnackBar(content: Text("Guardado en Descargas: mis_ventas.xlsx")),
       );
     }
+  } catch (e) {
+    if (mounted) Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error al exportar: $e")),
+    );
   }
+}
+
 
   // Carga el usuario actual y los datos mensuales desde Firestore.
   void _loadCurrentUser() async {
@@ -961,58 +964,71 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
     }
   }
 
-  Widget _buildBanner() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        image: DecorationImage(
-          image: AssetImage('assets/animations/logo.gif'),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          color: Colors.black.withOpacity(0.3),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "WinoWin",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Ingresos extras con Win O Win.\n"
-                "Gracias al excelente plan de regalías nuestros socios pueden llegar a recibir de nuestra winowin.shop",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () {
-                  // Acción al pulsar el botón
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  shape: const StadiumBorder(),
-                ),
-                child: const Text("Read more"),
-              ),
-            ],
+ Widget _buildBanner(BuildContext context) {
+  return Container(
+    width: MediaQuery.of(context).size.width,
+    margin: const EdgeInsets.only(bottom: 20),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: [
+          // Imagen animada de fondo
+          SizedBox(
+            width: double.infinity,
+            height: 250,
+            child: Image.asset(
+              'assets/animations/logo.gif',
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
+          // Capa oscura y contenido
+          Container(
+            width: double.infinity,
+            height: 250,
+            color: Colors.black.withOpacity(0.3),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "WinoWin",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Ingresos extras con Win O Win.\n"
+                  "Gracias al excelente plan de regalías nuestros socios pueden llegar a recibir de nuestra winowin.shop",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    // Acción al pulsar el botón
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text("Read more"),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -1062,7 +1078,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
         child: Column(
           children: [
             _buildSalesChart(),
-            _buildBanner(),
+            _buildBanner(context),
             SizedBox(height: 16),
             _buildReconocimientoCard(),  // Tarjeta dinámica de reconocimiento
             SizedBox(height: 16),
@@ -1074,7 +1090,7 @@ class _WinnerListScreenState extends State<WinnerListScreen> {
                 _dashboardCard("Ver árbol de referidos", Icons.account_tree_outlined, Colors.blue, _abrirArbolReferidos),
                 _dashboardCard("Editar ventas mensuales", Icons.edit, Colors.orange, _editarVentaMes),
                 _dashboardCard("Añadir venta", Icons.add_chart, Colors.purple, _agregarVentaMes),
-                _dashboardCard("Exportar usuarios a Excel", Icons.file_download, Colors.teal, _exportarUsuariosAExcel),
+                _dashboardCard("Exportar ventas a Excel", Icons.file_download, Colors.teal, _exportarUsuariosAExcel),
               ],
             ),
           ],
