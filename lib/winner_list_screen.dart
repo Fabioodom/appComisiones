@@ -10,10 +10,10 @@ import 'referidos_tree_screen.dart';
 import 'login_register_screen.dart';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:html' as html;
-import 'html_helper.dart'
-  if (dart.library.html) 'html_helper_web.dart';
+import 'html_helper.dart';  // El conditional export que creamos
+
 
 /// Función auxiliar para abreviar números.
 String formatAbbreviated(double number) {
@@ -260,19 +260,7 @@ Future<void> _exportarUsuariosAExcel() async {
     final bytes = await compute(generarExcelBytes, usuarios);
 
     if (kIsWeb) {
-      final blob = html.Blob(
-        [bytes],
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.document.createElement('a') as html.AnchorElement
-        ..href = url
-        ..download = 'mis_ventas.xlsx'
-        ..style.display = 'none';
-      html.document.body?.append(anchor);
-      anchor.click();
-      anchor.remove();
-      html.Url.revokeObjectUrl(url);
+      htmlHelper.downloadFile(bytes, 'mis_ventas.xlsx');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Archivo descargado: mis_ventas.xlsx")),
       );

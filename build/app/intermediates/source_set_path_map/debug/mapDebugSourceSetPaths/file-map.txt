@@ -33,3 +33,6 @@ com.example.app_comisiones.app-debug-31 C:\Users\fabio\Documents\Flutter App\fab
 com.example.app_comisiones.app-debug-32 C:\Users\fabio\Documents\Flutter App\fabi\appComisiones\app_comisiones\build\cloud_firestore\intermediates\packaged_res\debug\packageDebugResources
 com.example.app_comisiones.app-debug-33 C:\Users\fabio\Documents\Flutter App\fabi\appComisiones\app_comisiones\build\firebase_auth\intermediates\packaged_res\debug\packageDebugResources
 com.example.app_comisiones.app-debug-34 C:\Users\fabio\Documents\Flutter App\fabi\appComisiones\app_comisiones\build\firebase_core\intermediates\packaged_res\debug\packageDebugResources
+com.example.app_comisiones.app-debug-35 C:\Users\fabio\Documents\Flutter App\fabi\appComisiones\app_comisiones\build\path_provider_android\intermediates\packaged_res\debug\packageDebugResources
+com.example.app_comisiones.app-debug-36 C:\Users\fabio\Documents\Flutter App\fabi\appComisiones\app_comisiones\build\permission_handler_android\intermediates\packaged_res\debug\packageDebugResources
+com.example.app_comisiones.app-debug-37 C:\Users\fabio\Documents\Flutter App\fabi\appComisiones\app_comisiones\build\share_plus\intermediates\packaged_res\debug\packageDebugResources

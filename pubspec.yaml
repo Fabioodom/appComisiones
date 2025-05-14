@@ -25,7 +25,9 @@ dependencies:
   lottie: ^2.7.0
   fl_chart: ^0.65.0
   flutter_launcher_icons: ^0.14.3
+  
   excel: ^2.0.5
+  share_plus: ^8.0.0
   path_provider: ^2.1.2
   permission_handler: ^11.0.1
 dev_dependencies:

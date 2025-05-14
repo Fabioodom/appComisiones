@@ -1,13 +1,18 @@
-// html_helper_stub.dart
-import 'html_helper.dart';
+// lib/html_helper_stub.dart
+
+import 'dart:typed_data';
+
+abstract class HtmlHelper {
+  void downloadFile(List<int> bytes, String filename);
+}
 
 class HtmlHelperStub implements HtmlHelper {
   @override
   void downloadFile(List<int> bytes, String filename) {
-    // No se usa en plataformas no web.
-    // También puedes lanzar un error si lo prefieres:
-    // throw UnimplementedError('downloadFile() is not available on this platform.');
+    // No hay descarga en móviles; podrías lanzar si prefieres:
+    // throw UnimplementedError('downloadFile() solo disponible en Web');
   }
 }
 
+// Lo importante: exponemos la misma API
 HtmlHelper get htmlHelper => HtmlHelperStub();

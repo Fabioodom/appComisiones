@@ -1,6 +1,11 @@
-// html_helper_web.dart
+// lib/html_helper_web.dart
+
+import 'dart:typed_data';
 import 'dart:html' as html;
-import 'html_helper.dart';
+
+abstract class HtmlHelper {
+  void downloadFile(List<int> bytes, String filename);
+}
 
 class HtmlHelperImpl implements HtmlHelper {
   @override
@@ -16,7 +21,7 @@ class HtmlHelperImpl implements HtmlHelper {
       ..style.display = 'none';
     html.document.body?.append(anchor);
     anchor.click();
-    anchor.remove(); // Elimina el elemento del DOM
+    anchor.remove();
     html.Url.revokeObjectUrl(url);
   }
 }
